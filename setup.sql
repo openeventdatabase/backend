@@ -41,6 +41,20 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry, geography, and raster spatial types and functions';
 
 
+--
+-- Name: uuid-ossp; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
+
+
 SET search_path = public, pg_catalog;
 
 --
@@ -72,8 +86,17 @@ CREATE TABLE events (
     events_where geometry,
     events_when timestamp with time zone,
     events_type text,
-    events_tags json
+    events_tags json,
+    events_id uuid DEFAULT uuid_generate_v4(),
+    createdate timestamp without time zone DEFAULT now()
 );
+
+
+--
+-- Name: events_idx_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX events_idx_id ON events USING btree (events_id);
 
 
 --
