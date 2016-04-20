@@ -13,6 +13,37 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 SET row_security = off;
 
+SET search_path = public, pg_catalog;
+
+DROP TRIGGER events_lastupdate_trigger ON public.events;
+DROP INDEX public.events_idx_where;
+DROP INDEX public.events_idx_when;
+DROP INDEX public.events_idx_what;
+DROP INDEX public.events_idx_lastupdate;
+DROP INDEX public.events_idx_id;
+DROP INDEX public.events_idx_geom;
+DROP TABLE public.events;
+DROP FUNCTION public.events_lastupdate();
+DROP DOMAIN public.wgs84_lon;
+DROP DOMAIN public.wgs84_lat;
+DROP EXTENSION "uuid-ossp";
+DROP EXTENSION postgis;
+DROP EXTENSION plpgsql;
+DROP SCHEMA public;
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA public;
+
+
+--
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON SCHEMA public IS 'standard public schema';
+
+
 --
 -- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: -
 --
