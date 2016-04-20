@@ -10,19 +10,32 @@ class StatsResource(object):
     def on_get(self, req, resp):
         db = psycopg2.connect("dbname=oedb")
         cur = db.cursor()
-        cur.execute("SELECT count(*) from events;")
+        cur.execute("SELECT count(*) as events_count, max(createdate) as last_created, max(lastupdate) as last_updated from events;")
         stat = cur.fetchone()
-        count_events = stat[0]
         cur.close()
         db.close()
 
-        resp.body = """{"events_count":%s}""" % (count_events)
+        resp.body = """{"events_count": %s, "last_created": "%s", "last_updated": "%s"}""" % (stat[0], stat[1],stat[2])
         resp.set_header('X-Powered-By', 'OpenEventDatabase')
         resp.set_header('Access-Control-Allow-Origin', '*')
         resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
         resp.status = falcon.HTTP_200
 
 class EventResource(object):
+    def on_get(self, req, resp):
+        db = psycopg2.connect("dbname=oedb")
+        cur = db.cursor()
+        print(req.params['id'])
+        # get data to display activity graphs
+        cur.execute("""select * from events where events_id='%s';""", req.params['id'])
+        e = cur.fetchone(e['events_tags'])
+        resp.body = e
+        resp.status = falcon.HTTP_200
+        resp.set_header('X-Powered-By', 'OpenEventDatabase')
+        resp.set_header('Access-Control-Allow-Origin', '*')
+        resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
+        db.close()
+
     def on_post(self, req, resp):
         # get request body payload (json)
         body = req.stream.read().decode('utf-8')

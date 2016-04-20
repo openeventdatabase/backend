@@ -73,6 +73,15 @@ CREATE DOMAIN wgs84_lon AS double precision
 	CONSTRAINT wgs84_lon_check CHECK (((VALUE >= ('-180'::integer)::double precision) AND (VALUE <= (180)::double precision)));
 
 
+--
+-- Name: events_lastupdate(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION events_lastupdate() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$ BEGIN NEW.lastupdate = now(); RETURN NEW; END; $$;
+
+
 SET default_tablespace = '';
 
 SET default_with_oids = false;
@@ -88,8 +97,17 @@ CREATE TABLE events (
     events_type text,
     events_tags json,
     events_id uuid DEFAULT uuid_generate_v4(),
-    createdate timestamp without time zone DEFAULT now()
+    createdate timestamp without time zone DEFAULT now(),
+    events_geom geometry,
+    lastupdate timestamp without time zone
 );
+
+
+--
+-- Name: events_idx_geom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX events_idx_geom ON events USING gist (events_geom);
 
 
 --
@@ -97,6 +115,13 @@ CREATE TABLE events (
 --
 
 CREATE UNIQUE INDEX events_idx_id ON events USING btree (events_id);
+
+
+--
+-- Name: events_idx_lastupdate; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX events_idx_lastupdate ON events USING btree (lastupdate);
 
 
 --
@@ -118,6 +143,13 @@ CREATE INDEX events_idx_when ON events USING btree (events_when);
 --
 
 CREATE INDEX events_idx_where ON events USING gist (events_where);
+
+
+--
+-- Name: events_lastupdate_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER events_lastupdate_trigger BEFORE UPDATE ON events FOR EACH ROW EXECUTE PROCEDURE events_lastupdate();
 
 
 --
