@@ -22,29 +22,43 @@ class StatsResource(object):
         resp.status = falcon.HTTP_200
 
 class EventResource(object):
-    def on_get(self, req, resp):
+    def on_get(self, req, resp, id):
         db = psycopg2.connect("dbname=oedb")
         cur = db.cursor()
-        print(req.params['id'])
-        # get data to display activity graphs
-        cur.execute("""select * from events where events_id='%s';""", req.params['id'])
-        e = cur.fetchone(e['events_tags'])
-        resp.body = e
-        resp.status = falcon.HTTP_200
+        # get event geojson Feature
+        cur.execute("""
+SELECT format('{"type":"Feature", "properties": '|| events_tags::text ||', "geometry":'|| st_asgeojson(geom)) ||' }'
+FROM events
+JOIN geo ON (hash=events_geo)
+WHERE events_id=%s;""", (id,))
+        e = cur.fetchone()
         resp.set_header('X-Powered-By', 'OpenEventDatabase')
         resp.set_header('Access-Control-Allow-Origin', '*')
         resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
+        if e is not None:
+            resp.body = e[0]
+            resp.status = falcon.HTTP_200
+        else:
+            resp.status = falcon.HTTP_404
         db.close()
 
     def on_post(self, req, resp):
-        # get request body payload (json)
+        # get request body payload (geojson Feature)
         body = req.stream.read().decode('utf-8')
         j=json.loads(body)
-        
         # connect to db and insert
         db = psycopg2.connect("dbname=oedb")
         cur = db.cursor()
-        cur.execute("""INSERT INTO events ( events_type, events_what, events_when, events_tags) VALUES (%s, %s, %s, %s) RETURNING events_id;""",(j['type'],j['what'],j['when'], body))
+        # get the geometry part
+        geometry=json.dumps(j['geometry'])
+        # insert into geo table if not existing
+        cur.execute("""INSERT INTO geo (hash, geom) SELECT * FROM (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i ON CONFLICT DO NOTHING RETURNING hash;""",(geometry,))
+        # get its id (md5 hash)
+        h = cur.fetchone()
+        if h is None:
+            cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s )));""",(geometry,))
+            h = cur.fetchone()
+        cur.execute("""INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, %s, %s, %s) RETURNING events_id;""",(j['properties']['type'],j['properties']['what'],j['properties']['when'],json.dumps(j['properties']),h[0]))
         # get newly created event id
         e = cur.fetchone()
         db.commit()
@@ -66,6 +80,7 @@ event = EventResource()
 stats = StatsResource()
 
 # things will handle all requests to the matching URL path
+app.add_route('/event/{id}', event)  # handle single event requests
 app.add_route('/event', event)  # handle single event requests
 app.add_route('/stats', stats)
 

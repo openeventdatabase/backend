@@ -13,37 +13,6 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 SET row_security = off;
 
-SET search_path = public, pg_catalog;
-
-DROP TRIGGER events_lastupdate_trigger ON public.events;
-DROP INDEX public.events_idx_where;
-DROP INDEX public.events_idx_when;
-DROP INDEX public.events_idx_what;
-DROP INDEX public.events_idx_lastupdate;
-DROP INDEX public.events_idx_id;
-DROP INDEX public.events_idx_geom;
-DROP TABLE public.events;
-DROP FUNCTION public.events_lastupdate();
-DROP DOMAIN public.wgs84_lon;
-DROP DOMAIN public.wgs84_lat;
-DROP EXTENSION "uuid-ossp";
-DROP EXTENSION postgis;
-DROP EXTENSION plpgsql;
-DROP SCHEMA public;
---
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA public;
-
-
---
--- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON SCHEMA public IS 'standard public schema';
-
-
 --
 -- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: -
 --
@@ -123,22 +92,34 @@ SET default_with_oids = false;
 
 CREATE TABLE events (
     events_what text,
-    events_where geometry,
     events_when timestamp with time zone,
     events_type text,
     events_tags json,
     events_id uuid DEFAULT uuid_generate_v4(),
     createdate timestamp without time zone DEFAULT now(),
-    events_geom geometry,
-    lastupdate timestamp without time zone
+    lastupdate timestamp without time zone,
+    events_geo text
 );
 
 
 --
--- Name: events_idx_geom; Type: INDEX; Schema: public; Owner: -
+-- Name: geo; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE INDEX events_idx_geom ON events USING gist (events_geom);
+CREATE TABLE geo (
+    insee character varying(80),
+    nom character varying(80),
+    geom geometry(Geometry,4326),
+    hash text
+);
+
+
+--
+-- Name: geo_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY geo
+    ADD CONSTRAINT geo_hash_key UNIQUE (hash);
 
 
 --
@@ -170,27 +151,25 @@ CREATE INDEX events_idx_when ON events USING btree (events_when);
 
 
 --
--- Name: events_idx_where; Type: INDEX; Schema: public; Owner: -
+-- Name: geo_geom; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX events_idx_where ON events USING gist (events_where);
+CREATE INDEX geo_geom ON geo USING gist (geom);
 
 
 --
 -- Name: events_lastupdate_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER events_lastupdate_trigger BEFORE UPDATE ON events FOR EACH ROW EXECUTE PROCEDURE events_lastupdate();
+CREATE TRIGGER events_lastupdate_trigger BEFORE INSERT OR UPDATE ON events FOR EACH ROW EXECUTE PROCEDURE events_lastupdate();
 
 
 --
--- Name: public; Type: ACL; Schema: -; Owner: -
+-- Name: geo_pk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-REVOKE ALL ON SCHEMA public FROM PUBLIC;
-REVOKE ALL ON SCHEMA public FROM postgres;
-GRANT ALL ON SCHEMA public TO postgres;
-GRANT ALL ON SCHEMA public TO PUBLIC;
+ALTER TABLE ONLY events
+    ADD CONSTRAINT geo_pk FOREIGN KEY (events_geo) REFERENCES geo(hash);
 
 
 --
