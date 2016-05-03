@@ -92,13 +92,13 @@ SET default_with_oids = false;
 
 CREATE TABLE events (
     events_what text,
-    events_when timestamp with time zone,
     events_type text,
     events_tags json,
     events_id uuid DEFAULT uuid_generate_v4(),
     createdate timestamp without time zone DEFAULT now(),
     lastupdate timestamp without time zone,
-    events_geo text
+    events_geo text,
+    events_when tstzrange
 );
 
 
@@ -147,7 +147,7 @@ CREATE INDEX events_idx_what ON events USING spgist (events_what);
 -- Name: events_idx_when; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX events_idx_when ON events USING btree (events_when);
+CREATE INDEX events_idx_when ON events USING spgist (events_when);
 
 
 --

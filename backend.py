@@ -43,9 +43,28 @@ WHERE events_id=%s;""", (id,))
         db.close()
 
     def on_post(self, req, resp):
+        resp.set_header('X-Powered-By', 'OpenEventDatabase')
+        resp.set_header('Access-Control-Allow-Origin', '*')
+        resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
+
         # get request body payload (geojson Feature)
         body = req.stream.read().decode('utf-8')
         j=json.loads(body)
+        if "properties" not in j or "geometry" not in j:
+            resp.body = "missing 'geometry' or 'properties' elements"
+            resp.status = falcon.HTTP_400
+        if "start" not in j['properties']:
+            event_start = j['properties']['when']
+        else:
+            event_start = j['properties']['start']
+        if "stop" not in j['properties']:
+            event_stop = j['properties']['when']
+        else:
+            event_stop = j['properties']['stop']
+        if event_start == event_stop:
+            when = "["+event_start+", "+event_stop+"]"
+        else:
+            when = "["+event_start+", "+event_stop+")"
         # connect to db and insert
         db = psycopg2.connect("dbname=oedb")
         cur = db.cursor()
@@ -58,7 +77,7 @@ WHERE events_id=%s;""", (id,))
         if h is None:
             cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s )));""",(geometry,))
             h = cur.fetchone()
-        cur.execute("""INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, %s, %s, %s) RETURNING events_id;""",(j['properties']['type'],j['properties']['what'],j['properties']['when'],json.dumps(j['properties']),h[0]))
+        cur.execute("""INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, %s, %s, %s) RETURNING events_id;""",(j['properties']['type'],j['properties']['what'],when,json.dumps(j['properties']),h[0]))
         # get newly created event id
         e = cur.fetchone()
         db.commit()
@@ -66,10 +85,7 @@ WHERE events_id=%s;""", (id,))
         db.close()
         # send back to client
         resp.body = """{"id":"%s"}""" % (e[0])
-        resp.set_header('X-Powered-By', 'OpenEventDatabase')
-        resp.set_header('Access-Control-Allow-Origin', '*')
-        resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
-        resp.status = falcon.HTTP_200
+        resp.status = falcon.HTTP_201
 
 
 # falcon.API instances are callable WSGI apps
