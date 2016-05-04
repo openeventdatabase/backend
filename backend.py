@@ -1,14 +1,21 @@
 # backend.py
 # openeventdatabase
 
+import os
 import falcon
 import psycopg2
 import uuid
 import json
 
+def db_connect():
+    db_host = os.getenv("DB_HOST","localhost")
+    db_password = os.getenv("POSTGRES_PASSWORD","")
+    db = psycopg2.connect(dbname="oedb",host=db_host,password=db_password,user="postgres")
+    return db
+
 class StatsResource(object):
     def on_get(self, req, resp):
-        db = psycopg2.connect("dbname=oedb")
+        db = db_connect()
         cur = db.cursor()
         cur.execute("SELECT count(*) as events_count, max(createdate) as last_created, max(lastupdate) as last_updated from events;")
         stat = cur.fetchone()
@@ -23,7 +30,7 @@ class StatsResource(object):
 
 class EventResource(object):
     def on_get(self, req, resp, id):
-        db = psycopg2.connect("dbname=oedb")
+        db = db_connect()
         cur = db.cursor()
         # get event geojson Feature
         cur.execute("""
@@ -66,7 +73,7 @@ WHERE events_id=%s;""", (id,))
         else:
             when = "["+event_start+", "+event_stop+")"
         # connect to db and insert
-        db = psycopg2.connect("dbname=oedb")
+        db = db_connect()
         cur = db.cursor()
         # get the geometry part
         geometry=json.dumps(j['geometry'])
