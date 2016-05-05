@@ -1,0 +1,17 @@
+
+{
+  "title": "Evenement",
+  "type": "object",
+  "id": "event",
+  "properties": {
+    "what" : {
+      "type":"string",
+      "title":"Libellé de l'événement"
+    },
+    "when" : {
+      "title":"Date et heure de début",
+      "type" : "string",
+      "format" : "datetime-local"
+    }
+  }
+}

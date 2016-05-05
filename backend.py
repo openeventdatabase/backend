@@ -6,12 +6,18 @@ import falcon
 import psycopg2
 import uuid
 import json
+import codecs
 
 def db_connect():
     db_host = os.getenv("DB_HOST","localhost")
     db_password = os.getenv("POSTGRES_PASSWORD","")
     db = psycopg2.connect(dbname="oedb",host=db_host,password=db_password,user="postgres")
     return db
+
+def standard_headers(resp):
+    resp.set_header('X-Powered-By', 'OpenEventDatabase')
+    resp.set_header('Access-Control-Allow-Origin', '*')
+    resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
 
 class StatsResource(object):
     def on_get(self, req, resp):
@@ -22,10 +28,21 @@ class StatsResource(object):
         cur.close()
         db.close()
 
+        standard_headers(resp)
         resp.body = """{"events_count": %s, "last_created": "%s", "last_updated": "%s"}""" % (stat[0], stat[1],stat[2])
-        resp.set_header('X-Powered-By', 'OpenEventDatabase')
-        resp.set_header('Access-Control-Allow-Origin', '*')
-        resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
+        resp.status = falcon.HTTP_200
+
+class EventsResource(object):
+    def on_get(self,req,resp):
+        db = db_connect()
+        cur = db.cursor()
+        # get event geojson Feature
+        cur.execute("""
+SELECT format('{"type":"Feature", "id": "'|| events_id::text ||'", "properties": '|| events_tags::text ||', "geometry":'|| st_asgeojson(geom)) ||' }'
+FROM events
+JOIN geo ON (hash=events_geo)""");
+        standard_headers(resp)
+        resp.body = '{"type": "FeatureCollection","features": ['+','.join([x[0] for x in cur.fetchall()])+']}'
         resp.status = falcon.HTTP_200
 
 class EventResource(object):
@@ -39,9 +56,7 @@ FROM events
 JOIN geo ON (hash=events_geo)
 WHERE events_id=%s;""", (id,))
         e = cur.fetchone()
-        resp.set_header('X-Powered-By', 'OpenEventDatabase')
-        resp.set_header('Access-Control-Allow-Origin', '*')
-        resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
+        standard_headers(resp)
         if e is not None:
             resp.body = e[0]
             resp.status = falcon.HTTP_200
@@ -50,9 +65,7 @@ WHERE events_id=%s;""", (id,))
         db.close()
 
     def on_post(self, req, resp):
-        resp.set_header('X-Powered-By', 'OpenEventDatabase')
-        resp.set_header('Access-Control-Allow-Origin', '*')
-        resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
+        standard_headers(resp)
 
         # get request body payload (geojson Feature)
         body = req.stream.read().decode('utf-8')
@@ -94,16 +107,25 @@ WHERE events_id=%s;""", (id,))
         resp.body = """{"id":"%s"}""" % (e[0])
         resp.status = falcon.HTTP_201
 
+class StaticResource(object):
+    def on_get(self, req, resp):
+        resp.status = falcon.HTTP_200
+        resp.content_type = 'text/html'
+        with codecs.open('editor/index.html', 'r', 'utf-8') as f:
+            resp.body = f.read()
 
 # falcon.API instances are callable WSGI apps
 app = falcon.API()
 
 # Resources are represented by long-lived class instances
+events = EventsResource()
 event = EventResource()
 stats = StatsResource()
+editor = StaticResource()
 
 # things will handle all requests to the matching URL path
+app.add_route('/events', events)
 app.add_route('/event/{id}', event)  # handle single event requests
 app.add_route('/event', event)  # handle single event requests
 app.add_route('/stats', stats)
-
+app.add_route('/editor', editor)

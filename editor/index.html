@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title> Détail d'un événement </title>
+
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/json-editor/0.7.25/jsoneditor.min.js"></script>
+
+		<script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"/>
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css"/>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+		<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
+		<script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
+
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.2.3/leaflet.draw.css"/>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.2.3/leaflet.draw.js"></script>
+
+		<link rel="stylesheet" id="icon_stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.0.3/css/font-awesome.css">
+
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.5/handlebars.min.js"></script>
+
+		<script id="entry-template" type="text/x-handlebars-template">
+			{{#each features}}
+				<div class="entry">
+					<a id="{{id}}" href="#">{{properties.what}}</a>
+				</div>
+			{{/each}}
+		</script>
+	</head>
+	<body>
+		<div id="map" style="position: absolute; top: 0; left: 0; width: 50%; height: 100%;"></div>
+		<div class="container" style="position: absolute; top: 0; left: 50%; width: 50%; height: 100%; margin: 20px;">
+			<div class="row">
+				<div class="span8 col-md-8 columns eight large-8">
+					<div class="tab-content" id="tabs">
+						<div role="tabpanel" class="tab-pane active" id="events_list"><h1>Events</h1></div>
+						<div role="tabpanel" class="tab-pane" id="json_editor"/>	
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		<div id="submit"/><div id="restore"/><div id="valid_indicator"/>
+
+	<script>      
+      // Initialize the editor
+      var editor = new JSONEditor(document.getElementById('json_editor'),{
+        // Enable fetching schemas via ajax
+        ajax: true,
+        
+        // The schema for the editor
+        schema: {
+		  "title": "Evenement",
+		  "type": "object",
+		  "id": "event",
+		  "properties": {
+		    "what" : {
+		      "type":"string",
+		      "title":"Libellé de l'événement"
+		    },
+		    "when" : {
+		      "title":"Date et heure de début",
+		      "type" : "string",
+		      "format" : "datetime-local"
+		    }
+		  }
+        },
+
+        iconlib: "fontawesome4",
+        theme: "bootstrap3",
+        
+        // Seed the form with a starting value
+        startval: {}
+      });
+      
+      // Hook up the submit button to log to the console
+      document.getElementById('submit').addEventListener('click',function() {
+        // Get the value from the editor
+        console.log(editor.getValue());
+      });
+      
+      // Hook up the Restore to Default button
+      document.getElementById('restore').addEventListener('click',function() {
+        editor.setValue(starting_value);
+      });
+      
+      // Hook up the validation indicator to update its 
+      // status whenever the editor changes
+      editor.on('change',function() {
+        // Get an array of errors from the validator
+        var errors = editor.validate();
+        
+        var indicator = document.getElementById('valid_indicator');
+        
+        // Not valid
+        if(errors.length) {
+          indicator.className = 'label alert';
+          indicator.textContent = 'not valid';
+        }
+        // Valid
+        else {
+          indicator.className = 'label success';
+          indicator.textContent = 'valid';
+        }
+      });
+    </script>
+
+	<script>
+	
+		var osmUrl = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+			osmAttrib = '&copy; <a href="http://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+			osm = L.tileLayer(osmUrl, {maxZoom: 18, attribution: osmAttrib}),
+			map = new L.Map('map', {layers: [osm], center: new L.LatLng(48.9244643, 2.3594117), zoom: 15 });
+
+		var drawnItems = new L.FeatureGroup();
+		map.addLayer(drawnItems);
+
+		$("#tabs").tab();
+
+		$.getJSON("/events",function(events) {
+			events["features"].map(function(event) {
+				L.geoJson(event["geometry"]).addTo(drawnItems);
+			});
+
+			var source   = $("#entry-template").html();
+			var template = Handlebars.compile(source);
+			$('#events_list').append(template(events));
+
+			$('#events_list a').click(function(item) {
+				// Load properties in editor
+				events["features"].map(function(event) {
+					if (event.id == item.target.id) {
+						editor.setValue(event["properties"]);
+					}
+				});
+				// TODO - focus map on layer
+				// Switch tabs
+				$("#events_list").removeClass("active");
+				$("#json_editor").addClass("active");
+				return false;
+			});
+		});		
+
+		var drawControl = new L.Control.Draw({
+			draw: {
+				position: 'topleft',
+				polyline: false,
+				circle: false,
+				marker: false
+			},
+			edit: {
+				featureGroup: drawnItems
+			}
+		});
+		map.addControl(drawControl);
+
+		map.on('draw:created', function (e) {
+			var type = e.layerType,
+				layer = e.layer;
+			drawnItems.addLayer(e.layer);
+		});
+		
+	</script>
+	</body>
+</html>
