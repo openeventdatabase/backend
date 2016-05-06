@@ -98,9 +98,9 @@ WHERE events_id=%s;""", (id,))
         else:
             event_stop = j['properties']['stop']
         if event_start == event_stop:
-            when = "["+event_start+", "+event_stop+"]"
+            bounds = '[]'
         else:
-            when = "["+event_start+", "+event_stop+")"
+            bounds = '[)'
         # connect to db and insert
         db = db_connect()
         cur = db.cursor()
@@ -113,7 +113,7 @@ WHERE events_id=%s;""", (id,))
         if h is None:
             cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s )));""",(geometry,))
             h = cur.fetchone()
-        cur.execute("""INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, %s, %s, %s) RETURNING events_id;""",(j['properties']['type'],j['properties']['what'],when,json.dumps(j['properties']),h[0]))
+        cur.execute("""INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, tstzrange(%s,%s,%s) , %s, %s) RETURNING events_id;""",(j['properties']['type'],j['properties']['what'],event_start, event_stop, bounds, json.dumps(j['properties']),h[0]))
         # get newly created event id
         e = cur.fetchone()
         db.commit()
