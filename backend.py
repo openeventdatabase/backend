@@ -22,15 +22,27 @@ class StatsResource(object):
         resp.status = falcon.HTTP_200
 
 class EventResource(object):
-    def on_get(self, req, resp, id):
+    def on_get(self, req, resp, id = None):
         db = psycopg2.connect("dbname=oedb")
         cur = db.cursor()
-        # get event geojson Feature
-        cur.execute("""
+        if id is None:
+            cur.execute("""
+SELECT format('{"type": "FeatureCollection","features": [%s]}',string_agg(feature,',')) FROM
+  (SELECT '{"type":"Feature", "properties": '|| events_tags::text ||', "geometry":'|| st_asgeojson(geom) ||' }' as feature
+    FROM events
+    JOIN geo ON (hash=events_geo)
+    WHERE events_when @> format('[%s,%s]', now(), now())::tstzrange
+    ORDER BY createdate DESC
+    LIMIT 50) as f;
+""")
+        else:
+            # get event geojson Feature
+            cur.execute("""
 SELECT format('{"type":"Feature", "properties": '|| events_tags::text ||', "geometry":'|| st_asgeojson(geom)) ||' }'
 FROM events
 JOIN geo ON (hash=events_geo)
 WHERE events_id=%s;""", (id,))
+
         e = cur.fetchone()
         resp.set_header('X-Powered-By', 'OpenEventDatabase')
         resp.set_header('Access-Control-Allow-Origin', '*')
