@@ -73,7 +73,7 @@ class EventResource(object):
                 # limit search with fixed time
                 event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['when'],req.params['when']))
             else:
-                event_when = "'[now(),now()]'"
+                event_when = "tstzrange(now(),now(),'[]')"
 
             if 'what' in req.params:
                 # limit search based on "what"
