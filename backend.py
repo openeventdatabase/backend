@@ -9,9 +9,13 @@ import json
 import codecs
 
 def db_connect():
-    db_host = os.getenv("DB_HOST","localhost")
-    db_password = os.getenv("POSTGRES_PASSWORD","")
-    db = psycopg2.connect(dbname="oedb",host=db_host,password=db_password)
+    try:
+      db = psycopg2.connect(dbname="oedb")
+    except:
+      db_host = os.getenv("DB_HOST","localhost")
+      db_password = os.getenv("POSTGRES_PASSWORD","")
+      db = psycopg2.connect(dbname="oedb",host=db_host,password=db_password)
+
     return db
 
 def standard_headers(resp):
