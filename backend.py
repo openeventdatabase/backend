@@ -60,10 +60,7 @@ class EventResource(object):
             if 'bbox' in req.params:
                 # limit search with bbox (E,S,W,N)
                 event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ",tuple(req.params['bbox']))
-            else:
-                event_bbox = ""
-
-            if 'near' in req.params:
+            elif 'near' in req.params:
                 # limit search with location+distance (long, lat, distance in meters)
                 event_bbox = cur.mogrify(" AND geom && st_expand(st_buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry,0) ",tuple(req.params['near']))
             else:
@@ -72,8 +69,11 @@ class EventResource(object):
             if 'when' in req.params:
                 # limit search with fixed time
                 event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['when'],req.params['when']))
+            elif 'start' in req.params and 'stop' in req.params:
+                # limit search with fixed time
+                event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['start'],req.params['stop']))
             else:
-                event_when = "tstzrange(now(),now(),'[]')"
+                event_when = """tstzrange(now(),now(),'[]')"""
 
             if 'what' in req.params:
                 # limit search based on "what"
