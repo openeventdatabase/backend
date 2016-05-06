@@ -55,7 +55,7 @@ class EventResource(object):
         db = db_connect()
         cur = db.cursor()
         if id is None:
-            if req.params.has_key('bbox'):
+            if 'bbox' in req.params:
                 bbox = req.params['bbox']
                 cur.execute("""
 SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
