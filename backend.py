@@ -107,13 +107,6 @@ WHERE events_id=%s;""", (id,))
         resp.body = """{"id":"%s"}""" % (e[0])
         resp.status = falcon.HTTP_201
 
-class StaticResource(object):
-    def on_get(self, req, resp):
-        resp.status = falcon.HTTP_200
-        resp.content_type = 'text/html'
-        with codecs.open('editor/index.html', 'r', 'utf-8') as f:
-            resp.body = f.read()
-
 # falcon.API instances are callable WSGI apps
 app = falcon.API()
 
@@ -121,11 +114,9 @@ app = falcon.API()
 events = EventsResource()
 event = EventResource()
 stats = StatsResource()
-editor = StaticResource()
 
 # things will handle all requests to the matching URL path
 app.add_route('/events', events)
 app.add_route('/event/{id}', event)  # handle single event requests
 app.add_route('/event', event)  # handle single event requests
 app.add_route('/stats', stats)
-app.add_route('/editor', editor)
