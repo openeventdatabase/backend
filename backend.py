@@ -51,18 +51,31 @@ JOIN geo ON (hash=events_geo)""");
 
 class EventResource(object):
     def on_get(self, req, resp, id = None):
+        standard_headers(resp)
         db = db_connect()
         cur = db.cursor()
         if id is None:
-            cur.execute("""
-SELECT format('{"type": "FeatureCollection","features": [%s]}',string_agg(feature,',')) FROM
-  (SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
+            if req.params.has_key('bbox'):
+                bbox = req.params['bbox']
+                cur.execute("""
+SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
+    FROM events
+    JOIN geo ON (hash=events_geo) and geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326)
+    WHERE events_when @> tstzrange(now(), now(),'[]')
+    ORDER BY createdate DESC
+    LIMIT 50;
+""", tuple(bbox))
+            else:
+                cur.execute("""
+SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
     FROM events
     JOIN geo ON (hash=events_geo)
-    WHERE events_when @> format('[%s,%s]', now(), now())::tstzrange
+    WHERE events_when @> tstzrange(now(), now(),'[]')
     ORDER BY createdate DESC
-    LIMIT 50) as f;
+    LIMIT 50;
 """)
+            resp.body = '{"type": "FeatureCollection","features": ['+','.join([x[0] for x in cur.fetchall()])+']}'
+            resp.status = falcon.HTTP_200
         else:
             # get event geojson Feature
             cur.execute("""
@@ -71,13 +84,12 @@ FROM events
 JOIN geo ON (hash=events_geo)
 WHERE events_id=%s;""", (id,))
 
-        e = cur.fetchone()
-        standard_headers(resp)
-        if e is not None:
-            resp.body = e[0]
-            resp.status = falcon.HTTP_200
-        else:
-            resp.status = falcon.HTTP_404
+            e = cur.fetchone()
+            if e is not None:
+                resp.body = e[0]
+                resp.status = falcon.HTTP_200
+            else:
+                resp.status = falcon.HTTP_404
         db.close()
 
     def on_post(self, req, resp):
