@@ -91,14 +91,14 @@ SET default_with_oids = false;
 --
 
 CREATE TABLE events (
-    events_what text,
-    events_type text,
-    events_tags json,
     events_id uuid DEFAULT uuid_generate_v4(),
     createdate timestamp without time zone DEFAULT now(),
     lastupdate timestamp without time zone,
+    events_type text,
+    events_what text,
+    events_when tstzrange,
     events_geo text,
-    events_when tstzrange
+    events_tags jsonb
 );
 
 
