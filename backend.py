@@ -56,7 +56,7 @@ class EventResource(object):
         if id is None:
             cur.execute("""
 SELECT format('{"type": "FeatureCollection","features": [%s]}',string_agg(feature,',')) FROM
-  (SELECT '{"type":"Feature", "properties": '|| events_tags::text ||', "geometry":'|| st_asgeojson(geom) ||' }' as feature
+  (SELECT '{"type":"Feature", "properties": '|| events_tags::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
     FROM events
     JOIN geo ON (hash=events_geo)
     WHERE events_when @> format('[%s,%s]', now(), now())::tstzrange
