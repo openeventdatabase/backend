@@ -1,0 +1,230 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "Public API for the OpenEventDatabase project",
+    "version": "0.0.1",
+    "title": "OpenEventDatabase",
+    "contact": {
+      "name": "OpenEventDatabase API Team"
+    },
+    "license": {
+      "name": "AGPL",
+      "url": "http://www.gnu.org/licenses/"
+    }
+  },
+  "host": "api.openeventdatabase.org:80",
+  "basePath": "/",
+  "tags": [
+    {
+      "name": "Statistics",
+      "description": "Operations about API statistics"
+    },
+    {
+      "name": "Events",
+      "description": "Operations about events"
+    }
+  ],
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/event": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "what",
+            "in": "query",
+            "description": "Event hierarchical keyword search",
+            "required": false,
+            "type": "string",
+            "x-example": "weather.alert.wind"
+          },
+          {
+            "name": "when",
+            "in": "query",
+            "description": "Event time search",
+            "required": false,
+            "type": "string",
+            "format": "date",
+            "x-example": "2016-05-01 12:00:00+00"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Event time range search (stop is required)",
+            "required": false,
+            "type": "string",
+            "format": "date",
+            "x-example": "2016-05-01 12:00:00+00"
+          },
+          {
+            "name": "stop",
+            "in": "query",
+            "description": "Event time range search (start is required)",
+            "required": false,
+            "type": "string",
+            "format": "date",
+            "x-example": "2016-05-01 12:00:00+00"
+          },
+          {
+            "name": "bbox",
+            "in": "query",
+            "description": "Event geographic bounding box search (East, South, West, North)",
+            "required": false,
+            "type": "string",
+            "x-example": "-3.0,45.0,9.0,52.0"
+          },
+          {
+            "name": "near",
+            "in": "query",
+            "description": "Event search by distance (long, lat, distance in meters)",
+            "required": false,
+            "type": "string",
+            "x-example": "2.5,48.8,500"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of event as geojson FeatureCollection",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Event"
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Create a new event",
+        "description": "Create a new event",
+        "operationId": "placeOrder",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/Event"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Error 400"
+          }
+        }
+      }
+    },
+    "/event/{id}": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Get details about a single event",
+        "description": "Get details about a single event",
+        "operationId": "getOrderById",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Event"
+            }
+          },
+          "400": {
+            "description": "Error 400"
+          },
+          "404": {
+            "description": "Error 404"
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "tags": [
+          "Statistics"
+        ],
+        "consumes": [],
+        "produces": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Event": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "what"
+      ],
+      "properties": {
+        "createdate": {
+          "type": "string",
+          "format": "date",
+          "description": "Event creation timestamp"
+        },
+        "id": {
+          "type": "string",
+          "description": "Event UUID"
+        },
+        "lastupdate": {
+          "type": "string",
+          "format": "date",
+          "description": "Event last modification timestamp"
+        },
+        "start": {
+          "type": "string",
+          "format": "date",
+          "description": "Event start timestamp"
+        },
+        "stop": {
+          "type": "string",
+          "format": "date",
+          "description": "Event stop timestamp"
+        },
+        "type": {
+          "type": "string",
+          "description": "Event type: scheduled, forecast, unscheduled"
+        },
+        "what": {
+          "type": "string",
+          "description": "Event hierarchical keyword based description"
+        },
+        "when": {
+          "type": "string",
+          "format": "date",
+          "description": "Event timestamp"
+        }
+      }
+    }
+  }
+}
