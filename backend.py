@@ -55,29 +55,51 @@ class EventResource(object):
         db = db_connect()
         cur = db.cursor()
         if id is None:
+            # get query search parameters
+
             if 'bbox' in req.params:
-                bbox = req.params['bbox']
-                cur.execute("""
-SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
-    FROM events
-    JOIN geo ON (hash=events_geo) and geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326)
-    WHERE events_when @> tstzrange(now(), now(),'[]')
-    ORDER BY createdate DESC
-    LIMIT 50;
-""", tuple(bbox))
+                # limit search with bbox (E,S,W,N)
+                event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ",tuple(req.params['bbox']))
             else:
-                cur.execute("""
+                event_bbox = ""
+
+            if 'near' in req.params:
+                # limit search with location+distance (long, lat, distance in meters)
+                event_bbox = cur.mogrify(" AND geom && st_expand(st_buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry,0) ",tuple(req.params['near']))
+            else:
+                event_bbox = ""
+
+            if 'when' in req.params:
+                # limit search with fixed time
+                event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['when'],req.params['when']))
+            else:
+                event_when = "'[now(),now()]'"
+
+            if 'what' in req.params:
+                # limit search based on "what"
+                event_what = cur.mogrify(" AND events_what LIKE %s ",(req.params['what']+"%",))
+            else:
+                event_what = ""
+
+            if 'type' in req.params:
+                # limit search based on type (scheduled, forecast, unscheduled)
+                event_type = cur.mogrify(" AND events_type = %s ",(req.params['type'],))
+            else:
+                event_type = ""
+
+            # search recent active events
+            cur.execute("""
 SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
     FROM events
-    JOIN geo ON (hash=events_geo)
-    WHERE events_when @> tstzrange(now(), now(),'[]')
+    JOIN geo ON (hash=events_geo) """ + event_bbox +"""
+    WHERE events_when @> """+ event_when + event_what + event_type +"""
     ORDER BY createdate DESC
     LIMIT 50;
 """)
             resp.body = '{"type": "FeatureCollection","features": ['+','.join([x[0] for x in cur.fetchall()])+']}'
             resp.status = falcon.HTTP_200
         else:
-            # get event geojson Feature
+            # get single event geojson Feature by id
             cur.execute("""
 SELECT format('{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(geom)) ||' }'
 FROM events
