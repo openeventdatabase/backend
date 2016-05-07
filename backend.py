@@ -13,8 +13,9 @@ def db_connect():
       db = psycopg2.connect(dbname="oedb")
     except:
       db_host = os.getenv("DB_HOST","localhost")
+      db_user = os.getenv("DB_USER","oedb")
       db_password = os.getenv("POSTGRES_PASSWORD","")
-      db = psycopg2.connect(dbname="oedb",host=db_host,password=db_password)
+      db = psycopg2.connect(dbname="oedb",host=db_host,password=db_password,user=db_user)
 
     return db
 
@@ -50,6 +51,16 @@ JOIN geo ON (hash=events_geo)""");
         resp.status = falcon.HTTP_200
 
 class EventResource(object):
+    def maybe_insert_geometry(self,geometry,cur):
+        # insert into geo table if not existing
+        cur.execute("""INSERT INTO geo (hash, geom) SELECT * FROM (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i ON CONFLICT DO NOTHING RETURNING hash;""",(geometry,))
+        # get its id (md5 hash)
+        h = cur.fetchone()
+        if h is None:
+            cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s )));""",(geometry,))
+            h = cur.fetchone()
+        return h
+
     def on_get(self, req, resp, id = None):
         standard_headers(resp)
         db = db_connect()
@@ -114,7 +125,7 @@ WHERE events_id=%s;""", (id,))
                 resp.status = falcon.HTTP_404
         db.close()
 
-    def on_post(self, req, resp):
+    def insert_or_update(self, req, resp, id, query):
         standard_headers(resp)
 
         # get request body payload (geojson Feature)
@@ -140,14 +151,11 @@ WHERE events_id=%s;""", (id,))
         cur = db.cursor()
         # get the geometry part
         geometry=json.dumps(j['geometry'])
-        # insert into geo table if not existing
-        cur.execute("""INSERT INTO geo (hash, geom) SELECT * FROM (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i ON CONFLICT DO NOTHING RETURNING hash;""",(geometry,))
-        # get its id (md5 hash)
-        h = cur.fetchone()
-        if h is None:
-            cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s )));""",(geometry,))
-            h = cur.fetchone()
-        cur.execute("""INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, tstzrange(%s,%s,%s) , %s, %s) RETURNING events_id;""",(j['properties']['type'],j['properties']['what'],event_start, event_stop, bounds, json.dumps(j['properties']),h[0]))
+        h = self.maybe_insert_geometry(geometry,cur)
+        params = (j['properties']['type'],j['properties']['what'],event_start, event_stop, bounds, json.dumps(j['properties']),h[0])
+        if (id):
+            params = params + (id,)
+        cur.execute(query,params)
         # get newly created event id
         e = cur.fetchone()
         db.commit()
@@ -156,6 +164,12 @@ WHERE events_id=%s;""", (id,))
         # send back to client
         resp.body = """{"id":"%s"}""" % (e[0])
         resp.status = falcon.HTTP_201
+
+    def on_post(self, req, resp):
+        self.insert_or_update(req, resp, None, """INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, tstzrange(%s,%s,%s) , %s, %s) RETURNING events_id;""")
+
+    def on_put(self, req, resp, id):
+        self.insert_or_update(req, resp, id, """UPDATE events SET ( events_type, events_what, events_when, events_tags, events_geo) = (%s, %s, tstzrange(%s,%s,%s) , %s, %s) WHERE events_id = %s RETURNING events_id;""")
 
 # falcon.API instances are callable WSGI apps
 app = falcon.API()
