@@ -73,37 +73,37 @@ class EventResource(object):
 
             if 'bbox' in req.params:
                 # limit search with bbox (E,S,W,N)
-                event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ",tuple(req.params['bbox'])).decode("utf-8")
+                event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ",tuple(req.params['bbox']))
             elif 'near' in req.params:
                 # limit search with location+distance (long, lat, distance in meters)
-                event_bbox = cur.mogrify(" AND geom && st_expand(st_buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry,0) ",tuple(req.params['near'])).decode("utf-8")
+                event_bbox = cur.mogrify(" AND geom && st_expand(st_buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry,0) ",tuple(req.params['near']))
             else:
                 event_bbox = ""
 
             if 'when' in req.params:
                 # limit search with fixed time
-                event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['when'],req.params['when'])).decode("utf-8")
+                event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['when'],req.params['when']))
             elif 'start' in req.params and 'stop' in req.params:
                 # limit search with fixed time (start to stop)
-                event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['start'],req.params['stop'])).decode("utf-8")
+                event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['start'],req.params['stop']))
             elif 'start' in req.params and 'stop' not in req.params:
                 # limit search with fixed time (start to now)
-                event_when = cur.mogrify("tstzrange(%s,now(),'[]')",(req.params['start'],)).decode("utf-8")
+                event_when = cur.mogrify("tstzrange(%s,now(),'[]')",(req.params['start'],))
             elif 'start' not in req.params and 'stop' in req.params:
                 # limit search with fixed time (now to stop)
-                event_when = cur.mogrify("tstzrange(now(),%s,'[]')",(req.params['stop'],)).decode("utf-8")
+                event_when = cur.mogrify("tstzrange(now(),%s,'[]')",(req.params['stop'],))
             else:
                 event_when = """tstzrange(now(),now(),'[]')"""
 
             if 'what' in req.params:
                 # limit search based on "what"
-                event_what = cur.mogrify(" AND events_what LIKE %s ",(req.params['what']+"%",)).decode("utf-8")
+                event_what = cur.mogrify(" AND events_what LIKE %s ",(req.params['what']+"%",))
             else:
                 event_what = ""
 
             if 'type' in req.params:
                 # limit search based on type (scheduled, forecast, unscheduled)
-                event_type = cur.mogrify(" AND events_type = %s ",(req.params['type'],)).decode("utf-8")
+                event_type = cur.mogrify(" AND events_type = %s ",(req.params['type'],))
             else:
                 event_type = ""
 
