@@ -186,6 +186,19 @@ WHERE events_id=%s;""", (id,))
     def on_put(self, req, resp, id):
         self.insert_or_update(req, resp, id, """UPDATE events SET ( events_type, events_what, events_when, events_tags, events_geo) = (%s, %s, tstzrange(%s,%s,%s) , %s, %s) WHERE events_id = %s RETURNING events_id;""")
 
+    def on_delete(self, req, resp, id):
+        standard_headers(resp)
+        db = db_connect()
+        cur = db.cursor()
+        cur.execute("""DELETE FROM events WHERE events_id = %s;""",(id,));
+        db.commit()
+        cur.close()
+        db.close()
+        if cur.rowcount:
+            resp.status = falcon.HTTP_204
+        else:
+            resp.status = falcon.HTTP_404
+
 # falcon.API instances are callable WSGI apps
 app = falcon.API()
 
