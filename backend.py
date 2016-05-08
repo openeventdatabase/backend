@@ -93,7 +93,7 @@ class EventResource(object):
 SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
     FROM events
     JOIN geo ON (hash=events_geo) """ + event_bbox +"""
-    WHERE events_when @> """+ event_when + event_what + event_type +"""
+    WHERE events_when && """+ event_when + event_what + event_type +"""
     ORDER BY createdate DESC
     LIMIT 50;
 """)
