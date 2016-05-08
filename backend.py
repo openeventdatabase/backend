@@ -47,7 +47,10 @@ SELECT format('{"type":"Feature", "id": "'|| events_id::text ||'", "properties":
 FROM events
 JOIN geo ON (hash=events_geo)""");
         standard_headers(resp)
-        resp.body = '{"type": "FeatureCollection","features": ['+','.join([x[0] for x in cur.fetchall()])+']}'
+        resp.body = """{"type": "FeatureCollection","features": [
+"""+""",
+""".join([x[0] for x in cur.fetchall()])+"""
+]}"""
         resp.status = falcon.HTTP_200
 
 class EventResource(object):
@@ -108,7 +111,10 @@ SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_
     ORDER BY createdate DESC
     LIMIT 50;
 """)
-            resp.body = '{"type": "FeatureCollection","features": ['+','.join([x[0] for x in cur.fetchall()])+']}'
+            resp.body = """{"type":"FeatureCollection", "features": [
+"""+""",
+""".join([x[0] for x in cur.fetchall()])+"""
+]}"""
             resp.status = falcon.HTTP_200
         else:
             # get single event geojson Feature by id
