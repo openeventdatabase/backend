@@ -84,8 +84,14 @@ class EventResource(object):
                 # limit search with fixed time
                 event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['when'],req.params['when'])).decode("utf-8")
             elif 'start' in req.params and 'stop' in req.params:
-                # limit search with fixed time
+                # limit search with fixed time (start to stop)
                 event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['start'],req.params['stop'])).decode("utf-8")
+            elif 'start' in req.params and 'stop' not in req.params:
+                # limit search with fixed time (start to now)
+                event_when = cur.mogrify("tstzrange(%s,now(),'[]')",(req.params['start'],)).decode("utf-8")
+            elif 'start' not in req.params and 'stop' in req.params:
+                # limit search with fixed time (now to stop)
+                event_when = cur.mogrify("tstzrange(now(),%s,'[]')",(req.params['stop'],)).decode("utf-8")
             else:
                 event_when = """tstzrange(now(),now(),'[]')"""
 
