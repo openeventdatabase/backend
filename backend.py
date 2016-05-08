@@ -74,11 +74,14 @@ class EventResource(object):
             if 'bbox' in req.params:
                 # limit search with bbox (E,S,W,N)
                 event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ",tuple(req.params['bbox'])).decode("utf-8")
+                event_dist = ""
             elif 'near' in req.params:
                 # limit search with location+distance (long, lat, distance in meters)
                 event_bbox = cur.mogrify(" AND geom && st_expand(st_buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry,0) ",tuple(req.params['near'])).decode("utf-8")
+                event_dist = cur.mogrify(", 'distance', ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography) ",(req.params['near'][0], req.params['near'][1])).decode("utf-8")
             else:
                 event_bbox = ""
+                event_dist = ""
 
             if 'when' in req.params:
                 # limit search with fixed time
@@ -107,10 +110,9 @@ class EventResource(object):
             else:
                 event_type = ""
 
-            print(event_when + event_what + event_type)
             # search recent active events
             cur.execute("""
-SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
+SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate """+event_dist+"""))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
     FROM events
     JOIN geo ON (hash=events_geo) """ + event_bbox +"""
     WHERE events_when && """+ event_when + event_what + event_type +"""
