@@ -126,7 +126,7 @@ SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_
     JOIN geo ON (hash=events_geo) """ + event_bbox +"""
     WHERE events_when && """+ event_when + event_what + event_type +"""
     ORDER BY createdate DESC
-    LIMIT 50;
+    LIMIT 200;
 """)
             resp.body = """{"type":"FeatureCollection", "features": [
 """+""",
