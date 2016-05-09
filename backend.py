@@ -56,7 +56,7 @@ JOIN geo ON (hash=events_geo)""");
 class EventResource(object):
     def maybe_insert_geometry(self,geometry,cur):
         # insert into geo table if not existing
-        cur.execute("""INSERT INTO geo (hash, geom) SELECT * FROM (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i ON CONFLICT DO NOTHING RETURNING hash;""",(geometry,))
+        cur.execute("""INSERT INTO geo (hash, geom, geom_center) SELECT *, st_centroid(geom) FROM (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i ON CONFLICT DO NOTHING RETURNING hash;""",(geometry,))
         # get its id (md5 hash)
         h = cur.fetchone()
         if h is None:
@@ -112,7 +112,7 @@ class EventResource(object):
 
             # search recent active events
             cur.execute("""
-SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate """+event_dist+"""))::text ||', "geometry":'|| st_asgeojson(st_centroid(geom)) ||' }' as feature
+SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate """+event_dist+"""))::text ||', "geometry":'|| st_asgeojson(geom_center) ||' }' as feature
     FROM events
     JOIN geo ON (hash=events_geo) """ + event_bbox +"""
     WHERE events_when && """+ event_when + event_what + event_type +"""

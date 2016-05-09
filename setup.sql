@@ -107,9 +107,8 @@ CREATE TABLE events (
 --
 
 CREATE TABLE geo (
-    insee character varying(80),
-    nom character varying(80),
     geom geometry(Geometry,4326),
+    geom_center geometry(Point,4326),
     hash text
 );
 
