@@ -84,7 +84,7 @@
           {
             "name": "near",
             "in": "query",
-            "description": "Event search by distance (long, lat, distance in meters)",
+            "description": "Event search by distance (long, lat, optional distance in meters)",
             "required": false,
             "type": "string",
             "x-example": "2.5,48.8,500"

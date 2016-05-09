@@ -77,7 +77,11 @@ class EventResource(object):
                 event_dist = ""
             elif 'near' in req.params:
                 # limit search with location+distance (long, lat, distance in meters)
-                event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry) ",tuple(req.params['near'])).decode("utf-8")
+                if len(req.params['near'])<3:
+                    dist = 1
+                else:
+                    dist = req.params['near'][2]
+                event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry) ",(req.params['near'][0], req.params['near'][1], dist)).decode("utf-8")
                 event_dist = cur.mogrify(", 'distance', ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography) ",(req.params['near'][0], req.params['near'][1])).decode("utf-8")
             else:
                 event_bbox = ""
