@@ -110,9 +110,14 @@ class EventResource(object):
             else:
                 event_type = ""
 
+            event_geom = "geom_center"
+            if 'geom' in req.params:
+                if req.params['geom'] == 'full':
+                    event_geom = "geom"
+
             # search recent active events
             cur.execute("""
-SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate """+event_dist+"""))::text ||', "geometry":'|| st_asgeojson(geom_center) ||' }' as feature
+SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate """+event_dist+"""))::text ||', "geometry":'|| st_asgeojson("""+event_geom+""") ||' }' as feature
     FROM events
     JOIN geo ON (hash=events_geo) """ + event_bbox +"""
     WHERE events_when && """+ event_when + event_what + event_type +"""
