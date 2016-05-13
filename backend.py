@@ -4,6 +4,7 @@
 import os
 import falcon
 import psycopg2
+import psycopg2.extras
 import json
 
 
@@ -29,19 +30,14 @@ def standard_headers(resp):
 class StatsResource(object):
     def on_get(self, req, resp):
         db = db_connect()
-        cur = db.cursor()
+        cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("SELECT count(*) as events_count, max(createdate) as last_created, max(lastupdate) as last_updated from events;")
         stat = cur.fetchone()
         cur.close()
         db.close()
 
         standard_headers(resp)
-        body = {
-            "events_count": stat[0],
-            "last_created": stat[1],
-            "last_updated": stat[2]
-        }
-        resp.body = json.dumps(body)
+        resp.body = json.dumps(dict(stat))
         resp.status = falcon.HTTP_200
 
 
