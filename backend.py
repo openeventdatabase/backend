@@ -4,25 +4,27 @@
 import os
 import falcon
 import psycopg2
-import uuid
 import json
-import codecs
+
 
 def db_connect():
     try:
-      db = psycopg2.connect(dbname="oedb")
+        db = psycopg2.connect(dbname="oedb")
     except:
-      db_host = os.getenv("DB_HOST","localhost")
-      db_user = os.getenv("DB_USER","oedb")
-      db_password = os.getenv("POSTGRES_PASSWORD","")
-      db = psycopg2.connect(dbname="oedb",host=db_host,password=db_password,user=db_user)
+        db_host = os.getenv("DB_HOST", "localhost")
+        db_user = os.getenv("DB_USER", "oedb")
+        db_password = os.getenv("POSTGRES_PASSWORD", "")
+        db = psycopg2.connect(dbname="oedb", host=db_host,
+                              password=db_password, user=db_user)
 
     return db
+
 
 def standard_headers(resp):
     resp.set_header('X-Powered-By', 'OpenEventDatabase')
     resp.set_header('Access-Control-Allow-Origin', '*')
     resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
+
 
 class StatsResource(object):
     def on_get(self, req, resp):
@@ -34,11 +36,12 @@ class StatsResource(object):
         db.close()
 
         standard_headers(resp)
-        resp.body = """{"events_count": %s, "last_created": "%s", "last_updated": "%s"}""" % (stat[0], stat[1],stat[2])
+        resp.body = """{"events_count": %s, "last_created": "%s", "last_updated": "%s"}""" % (stat[0], stat[1], stat[2])
         resp.status = falcon.HTTP_200
 
+
 class EventsResource(object):
-    def on_get(self,req,resp):
+    def on_get(self, req, resp):
         db = db_connect()
         cur = db.cursor()
         # get event geojson Feature
@@ -53,18 +56,19 @@ JOIN geo ON (hash=events_geo)""");
 ]}"""
         resp.status = falcon.HTTP_200
 
+
 class EventResource(object):
-    def maybe_insert_geometry(self,geometry,cur):
+    def maybe_insert_geometry(self, geometry, cur):
         # insert into geo table if not existing
         cur.execute("""INSERT INTO geo (hash, geom, geom_center) SELECT *, st_centroid(geom) FROM (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i ON CONFLICT DO NOTHING RETURNING hash;""",(geometry,))
         # get its id (md5 hash)
         h = cur.fetchone()
         if h is None:
-            cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s )));""",(geometry,))
+            cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s )));""", (geometry,))
             h = cur.fetchone()
         return h
 
-    def on_get(self, req, resp, id = None):
+    def on_get(self, req, resp, id=None):
         standard_headers(resp)
         db = db_connect()
         cur = db.cursor()
@@ -76,8 +80,9 @@ class EventResource(object):
                 event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ",tuple(req.params['bbox'])).decode("utf-8")
                 event_dist = ""
             elif 'near' in req.params:
-                # limit search with location+distance (long, lat, distance in meters)
-                if len(req.params['near'])<3:
+                # Limit search with location+distance
+                # (long, lat, distance in meters)
+                if len(req.params['near']) < 3:
                     dist = 1
                 else:
                     dist = req.params['near'][2]
@@ -89,28 +94,28 @@ class EventResource(object):
 
             if 'when' in req.params:
                 # limit search with fixed time
-                event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['when'],req.params['when'])).decode("utf-8")
+                event_when = cur.mogrify("tstzrange(%s,%s,'[]')", (req.params['when'], req.params['when'])).decode("utf-8")
             elif 'start' in req.params and 'stop' in req.params:
                 # limit search with fixed time (start to stop)
-                event_when = cur.mogrify("tstzrange(%s,%s,'[]')",(req.params['start'],req.params['stop'])).decode("utf-8")
+                event_when = cur.mogrify("tstzrange(%s,%s,'[]')", (req.params['start'], req.params['stop'])).decode("utf-8")
             elif 'start' in req.params and 'stop' not in req.params:
                 # limit search with fixed time (start to now)
-                event_when = cur.mogrify("tstzrange(%s,now(),'[]')",(req.params['start'],)).decode("utf-8")
+                event_when = cur.mogrify("tstzrange(%s,now(),'[]')", (req.params['start'],)).decode("utf-8")
             elif 'start' not in req.params and 'stop' in req.params:
                 # limit search with fixed time (now to stop)
-                event_when = cur.mogrify("tstzrange(now(),%s,'[]')",(req.params['stop'],)).decode("utf-8")
+                event_when = cur.mogrify("tstzrange(now(),%s,'[]')", (req.params['stop'],)).decode("utf-8")
             else:
                 event_when = """tstzrange(now(),now(),'[]')"""
 
             if 'what' in req.params:
                 # limit search based on "what"
-                event_what = cur.mogrify(" AND events_what LIKE %s ",(req.params['what']+"%",)).decode("utf-8")
+                event_what = cur.mogrify(" AND events_what LIKE %s ", (req.params['what']+"%",)).decode("utf-8")
             else:
                 event_what = ""
 
             if 'type' in req.params:
                 # limit search based on type (scheduled, forecast, unscheduled)
-                event_type = cur.mogrify(" AND events_type = %s ",(req.params['type'],)).decode("utf-8")
+                event_type = cur.mogrify(" AND events_type = %s ", (req.params['type'],)).decode("utf-8")
             else:
                 event_type = ""
 
@@ -119,7 +124,7 @@ class EventResource(object):
                 if req.params['geom'] == 'full':
                     event_geom = "geom"
 
-            # search recent active events
+            # Search recent active events.
             cur.execute("""
 SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate """+event_dist+"""))::text ||', "geometry":'|| st_asgeojson("""+event_geom+""") ||' }' as feature
     FROM events
@@ -154,7 +159,7 @@ WHERE events_id=%s;""", (id,))
 
         # get request body payload (geojson Feature)
         body = req.stream.read().decode('utf-8')
-        j=json.loads(body)
+        j = json.loads(body)
         if "properties" not in j or "geometry" not in j:
             resp.body = "missing 'geometry' or 'properties' elements"
             resp.status = falcon.HTTP_400
@@ -176,10 +181,10 @@ WHERE events_id=%s;""", (id,))
         # get the geometry part
         geometry=json.dumps(j['geometry'])
         h = self.maybe_insert_geometry(geometry,cur)
-        params = (j['properties']['type'],j['properties']['what'],event_start, event_stop, bounds, json.dumps(j['properties']),h[0])
-        if (id):
+        params = (j['properties']['type'], j['properties']['what'], event_start, event_stop, bounds, json.dumps(j['properties']), h[0])
+        if id:
             params = params + (id,)
-        cur.execute(query,params)
+        cur.execute(query, params)
         # get newly created event id
         e = cur.fetchone()
         db.commit()
@@ -199,7 +204,7 @@ WHERE events_id=%s;""", (id,))
         standard_headers(resp)
         db = db_connect()
         cur = db.cursor()
-        cur.execute("""DELETE FROM events WHERE events_id = %s;""",(id,));
+        cur.execute("""DELETE FROM events WHERE events_id = %s;""", (id,));
         db.commit()
         cur.close()
         db.close()
