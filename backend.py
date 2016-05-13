@@ -36,7 +36,12 @@ class StatsResource(object):
         db.close()
 
         standard_headers(resp)
-        resp.body = """{"events_count": %s, "last_created": "%s", "last_updated": "%s"}""" % (stat[0], stat[1], stat[2])
+        body = {
+            "events_count": stat[0],
+            "last_created": stat[1],
+            "last_updated": stat[2]
+        }
+        resp.body = json.dumps(body)
         resp.status = falcon.HTTP_200
 
 
