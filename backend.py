@@ -39,18 +39,23 @@ class StatsResource(object):
 
 
 class EventsResource(object):
+
+    def row_to_feature(self, row):
+        return {
+            "type": "Feature",
+            "geometry": json.loads(row['geometry']),
+            "id": row['events_id'],
+            "properties": row['events_tags']
+        }
+
     def on_get(self, req, resp):
         db = db_connect()
-        cur = db.cursor()
-        # get event geojson Feature
-        cur.execute("""
-SELECT format('{"type":"Feature", "id": "'|| events_id::text ||'", "properties": '|| events_tags::text ||', "geometry":'|| st_asgeojson(geom)) ||' }'
-FROM events
-JOIN geo ON (hash=events_geo)""");
-        resp.body = """{"type": "FeatureCollection","features": [
-"""+""",
-""".join([x[0] for x in cur.fetchall()])+"""
-]}"""
+        cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute("SELECT events_id, events_tags, st_asgeojson(geom) as geometry FROM events JOIN geo ON (hash=events_geo)")
+        resp.body = json.dumps({
+            "type": "FeatureCollection",
+            "features": [self.row_to_feature(r) for r in cur.fetchall()]
+        })
         resp.status = falcon.HTTP_200
 
 
