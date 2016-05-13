@@ -17,10 +17,12 @@ def db_connect():
         user=os.getenv("DB_USER", None))
 
 
-def standard_headers(resp):
-    resp.set_header('X-Powered-By', 'OpenEventDatabase')
-    resp.set_header('Access-Control-Allow-Origin', '*')
-    resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
+class HeaderMiddleware:
+
+    def process_response(self, req, resp, resource):
+        resp.set_header('X-Powered-By', 'OpenEventDatabase')
+        resp.set_header('Access-Control-Allow-Origin', '*')
+        resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
 
 
 class StatsResource(object):
@@ -32,7 +34,6 @@ class StatsResource(object):
         cur.close()
         db.close()
 
-        standard_headers(resp)
         resp.body = json.dumps(dict(stat))
         resp.status = falcon.HTTP_200
 
@@ -46,7 +47,6 @@ class EventsResource(object):
 SELECT format('{"type":"Feature", "id": "'|| events_id::text ||'", "properties": '|| events_tags::text ||', "geometry":'|| st_asgeojson(geom)) ||' }'
 FROM events
 JOIN geo ON (hash=events_geo)""");
-        standard_headers(resp)
         resp.body = """{"type": "FeatureCollection","features": [
 """+""",
 """.join([x[0] for x in cur.fetchall()])+"""
@@ -66,7 +66,6 @@ class EventResource(object):
         return h
 
     def on_get(self, req, resp, id=None):
-        standard_headers(resp)
         db = db_connect()
         cur = db.cursor()
         if id is None:
@@ -152,7 +151,6 @@ WHERE events_id=%s;""", (id,))
         db.close()
 
     def insert_or_update(self, req, resp, id, query):
-        standard_headers(resp)
 
         # get request body payload (geojson Feature)
         body = req.stream.read().decode('utf-8')
@@ -198,7 +196,6 @@ WHERE events_id=%s;""", (id,))
         self.insert_or_update(req, resp, id, """UPDATE events SET ( events_type, events_what, events_when, events_tags, events_geo) = (%s, %s, tstzrange(%s,%s,%s) , %s, %s) WHERE events_id = %s RETURNING events_id;""")
 
     def on_delete(self, req, resp, id):
-        standard_headers(resp)
         db = db_connect()
         cur = db.cursor()
         cur.execute("""DELETE FROM events WHERE events_id = %s;""", (id,));
@@ -210,8 +207,8 @@ WHERE events_id=%s;""", (id,))
         else:
             resp.status = falcon.HTTP_404
 
-# falcon.API instances are callable WSGI apps
-app = falcon.API()
+# Falcon.API instances are callable WSGI apps.
+app = falcon.API(middleware=[HeaderMiddleware()])
 
 # Resources are represented by long-lived class instances
 events = EventsResource()
