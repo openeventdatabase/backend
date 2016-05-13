@@ -10,16 +10,11 @@ import psycopg2.extras
 
 
 def db_connect():
-    try:
-        db = psycopg2.connect(dbname="oedb")
-    except:
-        db_host = os.getenv("DB_HOST", "localhost")
-        db_user = os.getenv("DB_USER", "oedb")
-        db_password = os.getenv("POSTGRES_PASSWORD", "")
-        db = psycopg2.connect(dbname="oedb", host=db_host,
-                              password=db_password, user=db_user)
-
-    return db
+    return psycopg2.connect(
+        dbname=os.getenv("DB_NAME", "oedb"),
+        host=os.getenv("DB_HOST", None),
+        password=os.getenv("POSTGRES_PASSWORD", None),
+        user=os.getenv("DB_USER", None))
 
 
 def standard_headers(resp):
