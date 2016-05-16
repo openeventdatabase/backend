@@ -61,9 +61,10 @@
     }
   ,
 	"properties":{
-		 "type":"protest"
-		,"what":"Loi travail"
-		,"start":"2016-06-10T21:00+01:00"
-		,"stop":"2016-06-10T23:30+01:00"
+		 "type":"scheduled"
+		,"what":"protest"
+		,"label":"Manifestation Loi travail"
+		,"start":"2016-06-10T21:00+02:00"
+		,"stop":"2016-06-10T23:30+02:00"
 	}
 }
