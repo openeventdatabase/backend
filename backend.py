@@ -38,20 +38,28 @@ class StatsResource(object):
         resp.status = falcon.HTTP_200
 
 
-class EventsResource(object):
+class BaseEvent:
 
     def row_to_feature(self, row):
+        properties = dict(row['events_tags'])
+        properties.update({
+            'createdate': str(row['createdate']),
+            'last_updated': str(row['lastupdate'])
+        })
         return {
             "type": "Feature",
             "geometry": json.loads(row['geometry']),
             "id": row['events_id'],
-            "properties": row['events_tags']
+            "properties": properties
         }
+
+
+class EventsResource(BaseEvent):
 
     def on_get(self, req, resp):
         db = db_connect()
         cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cur.execute("SELECT events_id, events_tags, st_asgeojson(geom) as geometry FROM events JOIN geo ON (hash=events_geo)")
+        cur.execute("SELECT events_id, events_tags, createdate, lastupdate, st_asgeojson(geom) as geometry FROM events JOIN geo ON (hash=events_geo)")
         resp.body = json.dumps({
             "type": "FeatureCollection",
             "features": [self.row_to_feature(r) for r in cur.fetchall()]
@@ -59,10 +67,10 @@ class EventsResource(object):
         resp.status = falcon.HTTP_200
 
 
-class EventResource(object):
+class EventResource(BaseEvent):
     def maybe_insert_geometry(self, geometry, cur):
         # insert into geo table if not existing
-        cur.execute("""INSERT INTO geo (hash, geom, geom_center) SELECT *, st_centroid(geom) FROM (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i ON CONFLICT DO NOTHING RETURNING hash;""",(geometry,))
+        cur.execute("""INSERT INTO geo (hash, geom, geom_center) SELECT *, st_centroid(geom) FROM (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i ON CONFLICT DO NOTHING RETURNING hash;""", (geometry,))
         # get its id (md5 hash)
         h = cur.fetchone()
         if h is None:
@@ -72,7 +80,7 @@ class EventResource(object):
 
     def on_get(self, req, resp, id=None):
         db = db_connect()
-        cur = db.cursor()
+        cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         if id is None:
             # get query search parameters
 
@@ -140,16 +148,12 @@ SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_
 ]}"""
             resp.status = falcon.HTTP_200
         else:
-            # get single event geojson Feature by id
-            cur.execute("""
-SELECT format('{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate))::text ||', "geometry":'|| st_asgeojson(geom)) ||' }'
-FROM events
-JOIN geo ON (hash=events_geo)
-WHERE events_id=%s;""", (id,))
+            # Get single event geojson Feature by id.
+            cur.execute("SELECT events_id, events_tags, createdate, lastupdate, st_asgeojson(geom) as geometry FROM events JOIN geo ON (hash=events_geo) WHERE events_id=%s", [id])
 
             e = cur.fetchone()
             if e is not None:
-                resp.body = e[0]
+                resp.body = json.dumps(self.row_to_feature(e))
                 resp.status = falcon.HTTP_200
             else:
                 resp.status = falcon.HTTP_404
