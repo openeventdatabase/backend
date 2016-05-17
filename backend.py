@@ -59,14 +59,14 @@ class BaseEvent:
         properties = dict(row['events_tags'])
         properties.update({
             'createdate': row['createdate'],
-            'last_updated': row['lastupdate']
+            'lastupdate': row['lastupdate'],
+            "id": row['events_id']
         })
         if "distance" in row:
             properties['distance'] = row['distance']
         return {
             "type": "Feature",
             "geometry": json.loads(row['geometry']),
-            "id": row['events_id'],
             "properties": properties
         }
 
