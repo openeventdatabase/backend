@@ -46,11 +46,19 @@ class BaseEvent:
             'createdate': str(row['createdate']),
             'last_updated': str(row['lastupdate'])
         })
+        if "distance" in row:
+            properties['distance'] = row['distance']
         return {
             "type": "Feature",
             "geometry": json.loads(row['geometry']),
             "id": row['events_id'],
             "properties": properties
+        }
+
+    def rows_to_collection(self, rows):
+        return {
+            "type": "FeatureCollection",
+            "features": [self.row_to_feature(r) for r in rows]
         }
 
 
@@ -60,10 +68,7 @@ class EventsResource(BaseEvent):
         db = db_connect()
         cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("SELECT events_id, events_tags, createdate, lastupdate, st_asgeojson(geom) as geometry FROM events JOIN geo ON (hash=events_geo)")
-        resp.body = json.dumps({
-            "type": "FeatureCollection",
-            "features": [self.row_to_feature(r) for r in cur.fetchall()]
-        })
+        resp.body = json.dumps(self.rows_to_collection(cur.fetchall()))
         resp.status = falcon.HTTP_200
 
 
@@ -95,8 +100,8 @@ class EventResource(BaseEvent):
                     dist = 1
                 else:
                     dist = req.params['near'][2]
-                event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry) ",(req.params['near'][0], req.params['near'][1], dist)).decode("utf-8")
-                event_dist = cur.mogrify(", 'distance', ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography) ",(req.params['near'][0], req.params['near'][1])).decode("utf-8")
+                event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry) ", (req.params['near'][0], req.params['near'][1], dist)).decode("utf-8")
+                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography) as distance,", (req.params['near'][0], req.params['near'][1])).decode("utf-8")
             else:
                 event_bbox = ""
                 event_dist = ""
@@ -114,7 +119,7 @@ class EventResource(BaseEvent):
                 # limit search with fixed time (now to stop)
                 event_when = cur.mogrify("tstzrange(now(),%s,'[]')", (req.params['stop'],)).decode("utf-8")
             else:
-                event_when = """tstzrange(now(),now(),'[]')"""
+                event_when = "tstzrange(now(),now(),'[]')"
 
             if 'what' in req.params:
                 # limit search based on "what"
@@ -134,18 +139,13 @@ class EventResource(BaseEvent):
                     event_geom = "geom"
 
             # Search recent active events.
-            cur.execute("""
-SELECT '{"type":"Feature", "properties": '|| (events_tags::jsonb || jsonb_build_object('id',events_id,'createdate',createdate,'lastupdate',lastupdate """+event_dist+"""))::text ||', "geometry":'|| st_asgeojson("""+event_geom+""") ||' }' as feature
-    FROM events
-    JOIN geo ON (hash=events_geo) """ + event_bbox +"""
-    WHERE events_when && """+ event_when + event_what + event_type +"""
-    ORDER BY createdate DESC
-    LIMIT 200;
-""")
-            resp.body = """{"type":"FeatureCollection", "features": [
-"""+""",
-""".join([x[0] for x in cur.fetchall()])+"""
-]}"""
+            sql = """SELECT events_id, events_tags, createdate, lastupdate, {event_dist} st_asgeojson({event_geom}) as geometry FROM events JOIN geo ON (hash=events_geo) {event_bbox} WHERE events_when && {event_when} {event_what} {event_type} ORDER BY createdate DESC LIMIT 200"""
+            # No user generated content here, so format is safe.
+            sql = sql.format(event_dist=event_dist, event_geom=event_geom,
+                             event_bbox=event_bbox, event_what=event_what,
+                             event_when=event_when, event_type=event_type)
+            cur.execute(sql)
+            resp.body = json.dumps(self.rows_to_collection(cur.fetchall()))
             resp.status = falcon.HTTP_200
         else:
             # Get single event geojson Feature by id.
