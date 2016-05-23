@@ -38,7 +38,7 @@ class HeaderMiddleware:
         resp.set_header('X-Powered-By', 'OpenEventDatabase')
         resp.set_header('Access-Control-Allow-Origin', '*')
         resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
-
+        resp.set_header('Access-Control-Allow-Headers', 'Content-Type')
 
 class StatsResource(object):
     def on_get(self, req, resp):
