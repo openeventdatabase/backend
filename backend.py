@@ -123,7 +123,15 @@ class EventResource(BaseEvent):
 
             if 'when' in req.params:
                 # limit search with fixed time
-                event_when = cur.mogrify("tstzrange(%s,%s,'[]')", (req.params['when'], req.params['when'])).decode("utf-8")
+                when = req.params['when']
+                if when == 'TODAY':
+                    event_when = "tstzrange(CURRENT_DATE,CURRENT_DATE + INTERVAL '1 DAY','[]')"
+                elif when == 'TOMORROW':
+                    event_when = "tstzrange(CURRENT_DATE + INTERVAL '1 DAY',CURRENT_DATE + INTERVAL '2 DAY','[]')"
+                elif when == 'YESTERDAY':
+                    event_when = "tstzrange(CURRENT_DATE - INTERVAL '1 DAY',CURRENT_DATE,'[]')"
+                else:
+                    event_when = cur.mogrify("tstzrange(%s,%s,'[]')", (when, when)).decode("utf-8")
             elif 'start' in req.params and 'stop' in req.params:
                 # limit search with fixed time (start to stop)
                 event_when = cur.mogrify("tstzrange(%s,%s,'[]')", (req.params['start'], req.params['stop'])).decode("utf-8")
