@@ -132,6 +132,10 @@ class EventResource(BaseEvent):
                     event_when = "tstzrange(CURRENT_DATE + INTERVAL '1 DAY',CURRENT_DATE + INTERVAL '2 DAY','[]')"
                 elif when == 'YESTERDAY':
                     event_when = "tstzrange(CURRENT_DATE - INTERVAL '1 DAY',CURRENT_DATE,'[]')"
+                elif when == 'LASTHOUR':
+                    event_when = "tstzrange(now() - INTERVAL '1 hour',now(),'[]')"
+                elif when == 'NEXTHOUR':
+                    event_when = "tstzrange(now(), now() + INTERVAL '1 hour','[]')"
                 else:
                     event_when = cur.mogrify("tstzrange(%s,%s,'[]')", (when, when)).decode("utf-8")
             elif 'start' in req.params and 'stop' in req.params:
