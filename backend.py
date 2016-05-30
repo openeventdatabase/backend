@@ -70,11 +70,11 @@ class BaseEvent:
             "properties": properties
         }
 
-    def rows_to_collection(self, rows, count):
+    def rows_to_collection(self, rows):
         return {
             "type": "FeatureCollection",
             "features": [self.row_to_feature(r) for r in rows],
-            "count": count
+            "count": len(rows)
         }
 
 
@@ -84,7 +84,7 @@ class EventsResource(BaseEvent):
         db = db_connect()
         cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("SELECT events_id, events_tags, createdate, lastupdate, st_asgeojson(geom) as geometry FROM events JOIN geo ON (hash=events_geo)")
-        resp.body = dumps(self.rows_to_collection(cur.fetchall(), cur.rowcount))
+        resp.body = dumps(self.rows_to_collection(cur.fetchall()))
         resp.status = falcon.HTTP_200
 
 
@@ -175,7 +175,7 @@ class EventResource(BaseEvent):
                              event_bbox=event_bbox, event_what=event_what,
                              event_when=event_when, event_type=event_type)
             cur.execute(sql)
-            resp.body = dumps(self.rows_to_collection(cur.fetchall(), cur.rowcount))
+            resp.body = dumps(self.rows_to_collection(cur.fetchall()))
             resp.status = falcon.HTTP_200
         else:
             # Get single event geojson Feature by id.
