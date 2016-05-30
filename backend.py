@@ -124,6 +124,8 @@ class EventResource(BaseEvent):
             if 'when' in req.params:
                 # limit search with fixed time
                 when = req.params['when']
+                if when == 'NOW':
+                    event_when = "tstzrange(now(),now(),'[]')"
                 if when == 'TODAY':
                     event_when = "tstzrange(CURRENT_DATE,CURRENT_DATE + INTERVAL '1 DAY','[]')"
                 elif when == 'TOMORROW':
