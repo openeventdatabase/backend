@@ -167,6 +167,8 @@ class EventResource(BaseEvent):
             if 'geom' in req.params:
                 if req.params['geom'] == 'full':
                     event_geom = "geom"
+                else:
+                    event_geom = cur.mogrify("ST_SnapToGrid(geom,%s)",(req.params['geom'],)).decode("utf-8")
 
             # Search recent active events.
             sql = """SELECT events_id, events_tags, createdate, lastupdate, {event_dist} st_asgeojson({event_geom}) as geometry FROM events JOIN geo ON (hash=events_geo) {event_bbox} WHERE events_when && {event_when} {event_what} {event_type} ORDER BY createdate DESC LIMIT 200"""
