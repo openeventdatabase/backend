@@ -117,7 +117,7 @@ class EventResource(BaseEvent):
                 else:
                     dist = req.params['near'][2]
                 event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry) ", (req.params['near'][0], req.params['near'][1], dist)).decode("utf-8")
-                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography) as distance,", (req.params['near'][0], req.params['near'][1])).decode("utf-8")
+                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography)::integer as distance,", (req.params['near'][0], req.params['near'][1])).decode("utf-8")
             else:
                 event_bbox = ""
                 event_dist = ""
