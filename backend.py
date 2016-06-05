@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 import os
 import re
+import subprocess
 
 import falcon
 import psycopg2
@@ -48,11 +49,14 @@ class StatsResource(object):
         # estimated row count, way faster then count(*)
         cur.execute("SELECT reltuples FROM pg_class r WHERE relname = 'events';")
         count = cur.fetchone()[0]
-        cur.execute("SELECT max(lastupdate) as last_updated from events;")
-        last = cur.fetchone()[0]
+        cur.execute("SELECT max(lastupdate) as last_updated, current_timestamp-pg_postmaster_start_time() from events;")
+        pg_stats = cur.fetchone()
+        last = pg_stats[0]
+        pg_uptime = pg_stats[1]
+        uptime = subprocess.check_output(["uptime","-p"]).decode('utf-8')[0:-1]
         cur.close()
         db.close()
-        resp.body = dumps(dict(events_count=count, last_updated=last))
+        resp.body = dumps(dict(events_count=count, last_updated=last, uptime=uptime, db_uptime=pg_uptime))
         resp.status = falcon.HTTP_200
 
 
