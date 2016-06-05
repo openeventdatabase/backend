@@ -4,6 +4,7 @@
 from datetime import datetime
 import json
 import os
+import re
 
 import falcon
 import psycopg2
@@ -99,6 +100,43 @@ class EventResource(BaseEvent):
             h = cur.fetchone()
         return h
 
+
+    def relative_time(self, when, cur):
+        if when == 'NOW':
+            event_start = "now()"
+            event_stop = "now()"
+        elif when == 'TODAY':
+            event_start = "CURRENT_DATE"
+            event_stop = "CURRENT_DATE + INTERVAL '1 DAY'"
+        elif when == 'TOMORROW':
+            event_start = "CURRENT_DATE + INTERVAL '1 DAY'"
+            event_stop = "CURRENT_DATE + INTERVAL '2 DAY'"
+        elif when == 'YESTERDAY':
+            event_start = "CURRENT_DATE - INTERVAL '1 DAY'"
+            event_stop = "CURRENT_DATE"
+        elif when == 'NEXTWEEK':
+            event_start = "CURRENT_DATE"
+            event_stop = "CURRENT_DATE + INTERVAL '7 DAY'"
+        elif when == 'LASTWEEK':
+            event_start = "CURRENT_DATE - INTERVAL '7 DAY'"
+            event_stop = "CURRENT_DATE"
+        elif when == 'NEXTHOUR':
+            event_start = "now()"
+            event_stop = "now() + INTERVAL '1 HOUR'"
+        elif re.search('NEXT[0-9]HOURS',when):
+            event_start = "now()"
+            event_stop = "now() + INTERVAL '"+when[4]+" HOUR'"
+        elif when == 'LASTHOUR':
+            event_start = "now() - INTERVAL '1 HOUR'"
+            event_stop = "now()"
+        elif re.search('LAST[0-9]HOURS',when):
+            event_start = "now()"
+            event_stop = "now() - INTERVAL '"+when[4]+" HOUR'"
+        else:
+            event_start = cur.mogrify("%s",(when,)).decode("utf-8")
+            event_stop = cur.mogrify("%s",(when,)).decode("utf-8")
+        return event_start, event_stop
+
     def on_get(self, req, resp, id=None):
         db = db_connect()
         cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -125,29 +163,20 @@ class EventResource(BaseEvent):
             if 'when' in req.params:
                 # limit search with fixed time
                 when = req.params['when'].upper()
-                if when == 'NOW':
-                    event_when = "tstzrange(now(),now(),'[]')"
-                elif when == 'TODAY':
-                    event_when = "tstzrange(CURRENT_DATE,CURRENT_DATE + INTERVAL '1 DAY','[]')"
-                elif when == 'TOMORROW':
-                    event_when = "tstzrange(CURRENT_DATE + INTERVAL '1 DAY',CURRENT_DATE + INTERVAL '2 DAY','[]')"
-                elif when == 'YESTERDAY':
-                    event_when = "tstzrange(CURRENT_DATE - INTERVAL '1 DAY',CURRENT_DATE,'[]')"
-                elif when == 'LASTHOUR':
-                    event_when = "tstzrange(now() - INTERVAL '1 HOUR',now(),'[]')"
-                elif when == 'NEXTHOUR':
-                    event_when = "tstzrange(now(), now() + INTERVAL '1 HOUR','[]')"
-                else:
-                    event_when = cur.mogrify("tstzrange(%s,%s,'[]')", (when, when)).decode("utf-8")
+                event_when = "tstzrange(%s,%s,'[]')" % (self.relative_time(when,cur))
             elif 'start' in req.params and 'stop' in req.params:
                 # limit search with fixed time (start to stop)
-                event_when = cur.mogrify("tstzrange(%s,%s,'[]')", (req.params['start'], req.params['stop'])).decode("utf-8")
+                event_start, unused = self.relative_time(req.params['start'],cur)
+                unused, event_stop = self.relative_time(req.params['stop'],cur)
+                event_when = "tstzrange(%s,%s,'[]')" % (event_start, event_stop)
             elif 'start' in req.params and 'stop' not in req.params:
                 # limit search with fixed time (start to now)
-                event_when = cur.mogrify("tstzrange(%s,now(),'[]')", (req.params['start'],)).decode("utf-8")
+                event_start, unused = self.relative_time(req.params['start'],cur)
+                event_when = "tstzrange(%s,now(),'[]')" % event_start
             elif 'start' not in req.params and 'stop' in req.params:
                 # limit search with fixed time (now to stop)
-                event_when = cur.mogrify("tstzrange(now(),%s,'[]')", (req.params['stop'],)).decode("utf-8")
+                unused, event_stop = self.relative_time(req.params['stop'],cur)
+                event_when = "tstzrange(now(),%s,'[]')" % event_stop
             else:
                 event_when = "tstzrange(now(),now(),'[]')"
 
