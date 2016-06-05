@@ -45,12 +45,14 @@ class StatsResource(object):
     def on_get(self, req, resp):
         db = db_connect()
         cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cur.execute("SELECT count(*) as events_count, max(createdate) as last_created, max(lastupdate) as last_updated from events;")
-        stat = cur.fetchone()
+        # estimated row count, way faster then count(*)
+        cur.execute("SELECT reltuples FROM pg_class r WHERE relname = 'events';")
+        count = cur.fetchone()[0]
+        cur.execute("SELECT max(lastupdate) as last_updated from events;")
+        last = cur.fetchone()[0]
         cur.close()
         db.close()
-
-        resp.body = dumps(dict(stat))
+        resp.body = dumps(dict(events_count=count, last_updated=last))
         resp.status = falcon.HTTP_200
 
 
