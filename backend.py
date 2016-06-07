@@ -262,8 +262,11 @@ class EventResource(BaseEvent):
         cur.close()
         db.close()
         # send back to client
-        resp.body = """{"id":"%s"}""" % (e[0])
-        resp.status = falcon.HTTP_201
+        if e is None:
+          resp.status = falcon.HTTP_409
+        else:
+          resp.body = """{"id":"%s"}""" % (e[0])
+          resp.status = falcon.HTTP_201
 
     def on_post(self, req, resp):
         self.insert_or_update(req, resp, None, """INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, tstzrange(%s,%s,%s) , %s, %s) RETURNING events_id;""")
