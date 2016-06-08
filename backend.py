@@ -128,11 +128,11 @@ class EventResource(BaseEvent):
         m = re.match('(LAST|NEXT)([0-9]*)(MONTH|WEEK|MINUTE|HOUR|DAY)S',when)
         if m is not None:
             if m.group(1) == 'LAST':
-                event_start = "now() - INTERVAL '%s %s'" % (m.group(2),m.group(3))
+                event_start = "now() - INTERVAL '%s %s'" % m.group(2,3)
                 event_stop  = "now()"
             else:
                 event_start = "now()"
-                event_stop  = "now() + INTERVAL '%s %s'" % (m.group(2),m.group(3))
+                event_stop  = "now() + INTERVAL '%s %s'" % m.group(2,3)
 
         return event_start, event_stop
 
