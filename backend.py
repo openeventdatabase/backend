@@ -130,24 +130,24 @@ class EventResource(BaseEvent):
             event_stop = "CURRENT_DATE"
         if when == 'NEXTHOUR':
             when = 'NEXT1HOURS'
-        if re.search('NEXT[0-9]HOURS',when):
+        if re.search('NEXT[0-9]*HOURS',when):
             event_start = "now()"
-            event_stop = "now() + INTERVAL '"+when[4]+" HOUR'"
+            event_stop = "now() + INTERVAL '"+when[4:-6]+" HOUR'"
         if when == 'LASTHOUR':
             when = 'LAST1HOURS'
-        if re.search('LAST[0-9]HOURS',when):
-            event_start = "now() - INTERVAL '"+when[4]+" HOUR'"
+        if re.search('LAST[0-9]*HOURS',when):
+            event_start = "now() - INTERVAL '"+when[4:-6]+" HOUR'"
             event_stop = "now()"
         if when == 'LASTMINUTE':
             when = 'NEXT1MINUTES'
-        if re.search('LAST[0-9]MINUTES',when):
-            event_start = "now() - INTERVAL '"+when[4]+" MINUTE'"
+        if re.search('LAST[0-9]*MINUTES',when):
+            event_start = "now() - INTERVAL '"+when[4:-7]+" MINUTE'"
             event_stop = "now()"
         if when == 'NEXTMINUTE':
             when = "NEXT1MINUTES"
-        if re.search('NEXT[0-9]MINUTES',when):
+        if re.search('NEXT[0-9]*MINUTES',when):
             event_start = "now()"
-            event_stop = "now() + INTERVAL '"+when[4]+" MINUTE'"
+            event_stop = "now() + INTERVAL '"+when[4:-7]+" MINUTE'"
 
         return event_start, event_stop
 
