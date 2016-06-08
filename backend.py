@@ -108,40 +108,49 @@ class EventResource(BaseEvent):
 
 
     def relative_time(self, when, cur):
+        event_start = cur.mogrify("%s",(when,)).decode("utf-8")
+        event_stop = cur.mogrify("%s",(when,)).decode("utf-8")
         if when == 'NOW':
             event_start = "now()"
             event_stop = "now()"
-        elif when == 'TODAY':
+        if when == 'TODAY':
             event_start = "CURRENT_DATE"
             event_stop = "CURRENT_DATE + INTERVAL '1 DAY'"
-        elif when == 'TOMORROW':
+        if when == 'TOMORROW':
             event_start = "CURRENT_DATE + INTERVAL '1 DAY'"
             event_stop = "CURRENT_DATE + INTERVAL '2 DAY'"
-        elif when == 'YESTERDAY':
+        if when == 'YESTERDAY':
             event_start = "CURRENT_DATE - INTERVAL '1 DAY'"
             event_stop = "CURRENT_DATE"
-        elif when == 'NEXTWEEK':
+        if when == 'NEXTWEEK':
             event_start = "CURRENT_DATE"
             event_stop = "CURRENT_DATE + INTERVAL '7 DAY'"
-        elif when == 'LASTWEEK':
+        if when == 'LASTWEEK':
             event_start = "CURRENT_DATE - INTERVAL '7 DAY'"
             event_stop = "CURRENT_DATE"
-        elif when == 'NEXTHOUR':
-            event_start = "now()"
-            event_stop = "now() + INTERVAL '1 HOUR'"
-        elif re.search('NEXT[0-9]HOURS',when):
+        if when == 'NEXTHOUR':
+            when = 'NEXT1HOURS'
+        if re.search('NEXT[0-9]HOURS',when):
             event_start = "now()"
             event_stop = "now() + INTERVAL '"+when[4]+" HOUR'"
-        elif when == 'LASTHOUR':
-            event_start = "now() - INTERVAL '1 HOUR'"
+        if when == 'LASTHOUR':
+            when = 'LAST1HOURS'
+        if re.search('LAST[0-9]HOURS',when):
+            event_start = "now() - INTERVAL '"+when[4]+" HOUR'"
             event_stop = "now()"
-        elif re.search('LAST[0-9]HOURS',when):
+        if when == 'LASTMINUTE':
+            when = 'NEXT1MINUTES'
+        if re.search('LAST[0-9]MINUTES',when):
+            event_start = "now() - INTERVAL '"+when[4]+" MINUTE'"
+            event_stop = "now()"
+        if when == 'NEXTMINUTE':
+            when = "NEXT1MINUTES"
+        if re.search('NEXT[0-9]MINUTES',when):
             event_start = "now()"
-            event_stop = "now() - INTERVAL '"+when[4]+" HOUR'"
-        else:
-            event_start = cur.mogrify("%s",(when,)).decode("utf-8")
-            event_stop = cur.mogrify("%s",(when,)).decode("utf-8")
+            event_stop = "now() + INTERVAL '"+when[4]+" MINUTE'"
+
         return event_start, event_stop
+
 
     def on_get(self, req, resp, id=None):
         db = db_connect()
