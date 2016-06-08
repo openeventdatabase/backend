@@ -31,7 +31,7 @@ class EventEncoder(json.JSONEncoder):
 
 
 def dumps(data):
-    return json.dumps(data, cls=EventEncoder)
+    return json.dumps(data, cls=EventEncoder, sort_keys=True)
 
 
 class HeaderMiddleware:
