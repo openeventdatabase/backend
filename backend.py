@@ -124,7 +124,7 @@ class EventResource(BaseEvent):
             event_stop  = "CURRENT_DATE"
         m = re.match('(LAST|NEXT)(MONTH|WEEK|DAY|HOUR|MINUTE)',when)
         if m is not None:
-            when = m.group(1)+m.group(2)+'S'
+            when = m.group(1)+'1'+m.group(2)+'S'
         m = re.match('(LAST|NEXT)([0-9]*)(MONTH|WEEK|MINUTE|HOUR|DAY)S',when)
         if m is not None:
             if m.group(1) == 'LAST':
