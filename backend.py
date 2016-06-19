@@ -62,7 +62,15 @@ class StatsResource(object):
 
 class BaseEvent:
 
-    def row_to_feature(self, row):
+    def row_to_feature(self, row, geom_only = False):
+        # only return geometry and event id
+        if geom_only:
+          return {
+            "type": "Feature",
+            "geometry": json.loads(row['geometry']),
+            "properties": { "id" : row['events_id'] }
+          }
+
         properties = dict(row['events_tags'])
         properties.update({
             'createdate': row['createdate'],
@@ -79,10 +87,10 @@ class BaseEvent:
             "properties": properties
         }
 
-    def rows_to_collection(self, rows):
+    def rows_to_collection(self, rows, geom_only = False):
         return {
             "type": "FeatureCollection",
-            "features": [self.row_to_feature(r) for r in rows],
+            "features": [self.row_to_feature(r, geom_only) for r in rows],
             "count": len(rows)
         }
 
@@ -202,9 +210,12 @@ class EventResource(BaseEvent):
                 limit = "LIMIT 200"
 
             event_geom = "geom_center"
+            geom_only = False
             if 'geom' in req.params:
                 if req.params['geom'] == 'full':
                     event_geom = "geom"
+                elif req.params['geom'] == 'only':
+                    geom_only = True
                 else:
                     event_geom = cur.mogrify("ST_SnapToGrid(geom,%s)",(req.params['geom'],)).decode("utf-8")
 
@@ -215,7 +226,7 @@ class EventResource(BaseEvent):
                              event_bbox=event_bbox, event_what=event_what,
                              event_when=event_when, event_type=event_type, limit=limit)
             cur.execute(sql)
-            resp.body = dumps(self.rows_to_collection(cur.fetchall()))
+            resp.body = dumps(self.rows_to_collection(cur.fetchall(), geom_only))
             resp.status = falcon.HTTP_200
         else:
             # Get single event geojson Feature by id.
