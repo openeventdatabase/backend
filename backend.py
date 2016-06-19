@@ -110,6 +110,7 @@ class EventResource(BaseEvent):
     def relative_time(self, when, cur):
         event_start = cur.mogrify("%s",(when,)).decode("utf-8")
         event_stop  = cur.mogrify("%s",(when,)).decode("utf-8")
+        when = when.upper()
         if when == 'NOW':
             event_start = "now()"
             event_stop  = "now()"
