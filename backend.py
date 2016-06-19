@@ -192,6 +192,11 @@ class EventResource(BaseEvent):
             else:
                 event_type = ""
 
+            if 'limit' in req.params:
+                limit = cur.mogrify("LIMIT %s", (req.params['limit'],)).decode("utf-8")
+            else:
+                limit = "LIMIT 200"
+
             event_geom = "geom_center"
             if 'geom' in req.params:
                 if req.params['geom'] == 'full':
@@ -200,11 +205,11 @@ class EventResource(BaseEvent):
                     event_geom = cur.mogrify("ST_SnapToGrid(geom,%s)",(req.params['geom'],)).decode("utf-8")
 
             # Search recent active events.
-            sql = """SELECT events_id, events_tags, createdate, lastupdate, {event_dist} st_asgeojson({event_geom}) as geometry FROM events JOIN geo ON (hash=events_geo) {event_bbox} WHERE events_when && {event_when} {event_what} {event_type} ORDER BY createdate DESC LIMIT 200"""
+            sql = """SELECT events_id, events_tags, createdate, lastupdate, {event_dist} st_asgeojson({event_geom}) as geometry FROM events JOIN geo ON (hash=events_geo) {event_bbox} WHERE events_when && {event_when} {event_what} {event_type} ORDER BY createdate DESC {limit}"""
             # No user generated content here, so format is safe.
             sql = sql.format(event_dist=event_dist, event_geom=event_geom,
                              event_bbox=event_bbox, event_what=event_what,
-                             event_when=event_when, event_type=event_type)
+                             event_when=event_when, event_type=event_type, limit=limit)
             cur.execute(sql)
             resp.body = dumps(self.rows_to_collection(cur.fetchall()))
             resp.status = falcon.HTTP_200
