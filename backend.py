@@ -67,6 +67,8 @@ class BaseEvent:
         properties.update({
             'createdate': row['createdate'],
             'lastupdate': row['lastupdate'],
+            'lon': row['lon'],
+            'lat': row['lat'],
             "id": row['events_id']
         })
         if "distance" in row:
@@ -206,7 +208,7 @@ class EventResource(BaseEvent):
                     event_geom = cur.mogrify("ST_SnapToGrid(geom,%s)",(req.params['geom'],)).decode("utf-8")
 
             # Search recent active events.
-            sql = """SELECT events_id, events_tags, createdate, lastupdate, {event_dist} st_asgeojson({event_geom}) as geometry FROM events JOIN geo ON (hash=events_geo) {event_bbox} WHERE events_when && {event_when} {event_what} {event_type} ORDER BY createdate DESC {limit}"""
+            sql = """SELECT events_id, events_tags, createdate, lastupdate, {event_dist} st_asgeojson({event_geom}) as geometry, st_x(geom_center) as lon, st_y(geom_center) as lat FROM events JOIN geo ON (hash=events_geo) {event_bbox} WHERE events_when && {event_when} {event_what} {event_type} ORDER BY createdate DESC {limit}"""
             # No user generated content here, so format is safe.
             sql = sql.format(event_dist=event_dist, event_geom=event_geom,
                              event_bbox=event_bbox, event_what=event_what,
@@ -216,7 +218,7 @@ class EventResource(BaseEvent):
             resp.status = falcon.HTTP_200
         else:
             # Get single event geojson Feature by id.
-            cur.execute("SELECT events_id, events_tags, createdate, lastupdate, st_asgeojson(geom) as geometry FROM events JOIN geo ON (hash=events_geo) WHERE events_id=%s", [id])
+            cur.execute("SELECT events_id, events_tags, createdate, lastupdate, st_asgeojson(geom) as geometry, st_x(geom_center) as lon, st_y(geom_center) as lat FROM events JOIN geo ON (hash=events_geo) WHERE events_id=%s", [id])
 
             e = cur.fetchone()
             if e is not None:
