@@ -10,7 +10,8 @@ import subprocess
 import falcon
 import psycopg2
 import psycopg2.extras
-
+import geojson
+from shapely.geometry import shape
 
 def db_connect():
     return psycopg2.connect(
@@ -149,13 +150,27 @@ class EventResource(BaseEvent):
         return event_start, event_stop
 
 
-    def on_get(self, req, resp, id=None):
+    def on_get(self, req, resp, id=None, geom=None):
         db = db_connect()
         cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         if id is None:
             # get query search parameters
-
-            if 'bbox' in req.params:
+            if geom is not None:
+                # convert our geojson geom to WKT
+                wkt = shape(geojson.loads(json.dumps(geom))).wkt
+                # buffer around geom ?
+                if 'buffer' in req.params:
+                  buffer = float(req.params['buffer'])
+                elif geom['type'] == 'Linestring':
+                  buffer = 1000 # 1km buffer by default around Linestrings
+                else:
+                  buffer = 0
+                if buffer == 0:
+                  event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_SetSRID(ST_GeomFromText(%s),4326)) ",(wkt,)).decode("utf-8")
+                else:
+                  event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(ST_SetSRID(ST_GeomFromText(%s),4326)::geography, %s)::geometry) ",(wkt, buffer)).decode("utf-8")
+                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, ST_SetSRID(ST_GeomFromText(%s),4326))::geography)::integer as distance, ",(wkt,)).decode("utf-8")
+            elif 'bbox' in req.params:
                 # limit search with bbox (E,S,W,N)
                 event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ",tuple(req.params['bbox'])).decode("utf-8")
                 event_dist = ""
@@ -300,6 +315,17 @@ class EventResource(BaseEvent):
         else:
             resp.status = falcon.HTTP_404
 
+
+class EventSearch(BaseEvent):
+
+    def on_post(self, req, resp):
+        # body should contain a geojson Feature
+        body = req.stream.read().decode('utf-8')
+        j = json.loads(body)
+        # pass the query with the geometry to event.on_get
+        event.on_get(req, resp, None, j['geometry'])
+
+
 # Falcon.API instances are callable WSGI apps.
 app = falcon.API(middleware=[HeaderMiddleware()])
 
@@ -307,9 +333,11 @@ app = falcon.API(middleware=[HeaderMiddleware()])
 events = EventsResource()
 event = EventResource()
 stats = StatsResource()
+event_search = EventSearch()
 
 # things will handle all requests to the matching URL path
 app.add_route('/events', events)
 app.add_route('/event/{id}', event)  # handle single event requests
 app.add_route('/event', event)  # handle single event requests
 app.add_route('/stats', stats)
+app.add_route('/event/search', event_search)
