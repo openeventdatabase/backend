@@ -1,3 +1,6 @@
 falcon
 psycopg2
-uuid
+shapely
+geojson
+gunicorn
+
