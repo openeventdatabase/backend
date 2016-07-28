@@ -183,6 +183,14 @@ class EventResource(BaseEvent):
                     dist = req.params['near'][2]
                 event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry) ", (req.params['near'][0], req.params['near'][1], dist)).decode("utf-8")
                 event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography)::integer as distance,", (req.params['near'][0], req.params['near'][1])).decode("utf-8")
+            elif 'polyline' in req.params:
+                # use encoded polyline as search geometry
+                if 'buffer' in req.params:
+                    buffer = float(req.params['buffer'])
+                else:
+                    buffer = 1000
+                event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(ST_SetSRID(ST_Scale(ST_LineFromEncodedPolyline(%s),0.1,0.1),4326)::geography, %s)::geometry) ",(req.params['polyline'], buffer)).decode("utf-8")
+                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, ST_SetSRID(ST_Scale(ST_LineFromEncodedPolyline(%s),0.1,0.1),4326))::geography)::integer as distance, ",(req.params['polyline'],)).decode("utf-8")
             else:
                 event_bbox = ""
                 event_dist = ""
