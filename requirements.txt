@@ -1,6 +1,5 @@
-falcon
+falcon>=1.0.0
 psycopg2
 shapely
 geojson
 gunicorn
-
