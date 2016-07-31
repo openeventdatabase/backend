@@ -189,8 +189,13 @@ class EventResource(BaseEvent):
                     buffer = float(req.params['buffer'])
                 else:
                     buffer = 1000
-                event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(ST_SetSRID(ST_Scale(ST_LineFromEncodedPolyline(%s),0.1,0.1),4326)::geography, %s)::geometry) ",(req.params['polyline'], buffer)).decode("utf-8")
-                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, ST_SetSRID(ST_Scale(ST_LineFromEncodedPolyline(%s),0.1,0.1),4326))::geography)::integer as distance, ",(req.params['polyline'],)).decode("utf-8")
+                if 'polyline_precision' in req.params:
+                    precision = int(req.params['polyline_precision'])
+                else:
+                    precision = 5
+                # ST_Scale is a workaround to postgis bug not taking precision into account in ST_LineFromEncodedPolyline
+                event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(ST_Scale(ST_LineFromEncodedPolyline(%s),1/10^(%s-5),1/10^(%s-5))::geography, %s)::geometry) ",(req.params['polyline'], precision, precision, buffer)).decode("utf-8")
+                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, ST_Scale(ST_LineFromEncodedPolyline(%s),1/10^(%s-5),1/10^(%s-5)))::geography)::integer as distance, ",(req.params['polyline'], precision, precision)).decode("utf-8")
             else:
                 event_bbox = ""
                 event_dist = ""
