@@ -48,7 +48,7 @@ class StatsResource(object):
         db = db_connect()
         cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         # estimated row count, way faster then count(*)
-        cur.execute("SELECT reltuples FROM pg_class r WHERE relname = 'events';")
+        cur.execute("SELECT reltuples::bigint FROM pg_class r WHERE relname = 'events';")
         count = cur.fetchone()[0]
         cur.execute("SELECT max(lastupdate) as last_updated, current_timestamp-pg_postmaster_start_time() from events;")
         pg_stats = cur.fetchone()
