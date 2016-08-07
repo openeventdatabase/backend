@@ -280,21 +280,30 @@ class EventResource(BaseEvent):
             return
 
         resp.body = ''
-        if "properties" not in j or "geometry" not in j:
-            resp.body = resp.body + "missing 'geometry' or 'properties' elements\n"
+        if "properties" not in j:
+            resp.body = resp.body + "missing 'properties' elements\n"
+            j['properties'] = dict()
+        if "geometry" not in j:
+            resp.body = resp.body + "missing 'geometry' elements\n"
+            j['geometry'] = None
         if "when" not in j['properties'] and ("start" not in j['properties'] or "stop" not in j['properties']) :
             resp.body = resp.body + "missing 'when' or 'start/stop' in properties\n"
+            j['properties']['when'] = None
         if "type" not in j['properties']:
             resp.body = resp.body + "missing 'type' of event in properties\n"
+            j['properties']['type'] = None
         if "what" not in j['properties']:
             resp.body = resp.body + "missing 'what' in properties\n"
+            j['properties']['what'] = None
         if "type" in j and j['type'] != 'Feature':
             resp.body = resp.body + 'geojson must be "type":"Feature" only\n'
-        if resp.body != '':
+        if id is None and resp.body != '':
             resp.status = falcon.HTTP_400
             resp.set_header('Content-type', 'text/plain')
             return
 
+        if 'when' in j['properties']:
+            event_when = j['properties']['when']
         if "start" not in j['properties']:
             event_start = j['properties']['when']
         else:
@@ -311,27 +320,42 @@ class EventResource(BaseEvent):
         db = db_connect()
         cur = db.cursor()
         # get the geometry part
-        geometry=dumps(j['geometry'])
-        h = self.maybe_insert_geometry(geometry,cur)
+        if j['geometry'] is not None:
+            geometry=dumps(j['geometry'])
+            h = self.maybe_insert_geometry(geometry,cur)
+        else:
+            h = [None]
         params = (j['properties']['type'], j['properties']['what'], event_start, event_stop, bounds, dumps(j['properties']), h[0])
         if id:
             params = params + (id,)
-        cur.execute(query, params)
-        # get newly created event id
-        e = cur.fetchone()
-        db.commit()
+        e = None
+        try:
+            cur.execute(query, params)
+            # get newly created event id
+            e = cur.fetchone()
+            db.commit()
+        except:
+            pass
 
         # send back to client
         if e is None:
-          cur.execute("""SELECT events_id FROM events WHERE events_what=%s
+          if id is None:
+              cur.execute("""SELECT events_id FROM events WHERE events_what=%s
                       AND events_when=tstzrange(%s,%s,%s) AND events_geo=%s;""",
                       (j['properties']['what'], event_start, event_stop, bounds, h[0]))
+          else:
+              cur.execute("""END; WITH s AS (SELECT * FROM events WHERE events_id = %s) SELECT e.events_id FROM events e, s WHERE e.events_what=coalesce(%s, s.events_what)
+                      AND e.events_when=tstzrange(coalesce(%s, lower(s.events_when)),coalesce(%s,upper(s.events_when)),%s) AND e.events_geo=coalesce(%s, s.events_geo);""",
+                      (id, j['properties']['what'], event_start, event_stop, bounds, h[0]))
           dupe = cur.fetchone()
           resp.body = """{"duplicate":"%s"}""" % (dupe[0])
           resp.status = '409 Conflict with event %s' % dupe[0]
         else:
           resp.body = """{"id":"%s"}""" % (e[0])
-          resp.status = falcon.HTTP_201
+          if id is None:
+              resp.status = falcon.HTTP_201
+          else:
+              resp.status = falcon.HTTP_200
 
         cur.close()
         db.close()
@@ -340,7 +364,12 @@ class EventResource(BaseEvent):
         self.insert_or_update(req, resp, None, """INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, tstzrange(%s,%s,%s) , %s, %s) ON CONFLICT DO NOTHING RETURNING events_id;""")
 
     def on_put(self, req, resp, id):
-        self.insert_or_update(req, resp, id, """UPDATE events SET ( events_type, events_what, events_when, events_tags, events_geo) = (%s, %s, tstzrange(%s,%s,%s) , %s, %s) WHERE events_id = %s RETURNING events_id;""")
+        # PUT is acting like PATCH
+        event.on_patch(req, resp, id)
+
+    def on_patch(self, req, resp, id):
+        # coalesce are used to PATCH the data (new value may be NULL to keep the old one)
+        self.insert_or_update(req, resp, id, """UPDATE events SET ( events_type, events_what, events_when, events_tags, events_geo) = (coalesce(%s, events_type), coalesce(%s, events_what), tstzrange(coalesce(%s, lower(events_when)),coalesce(%s, upper(events_when)),%s) , events_tags || %s , coalesce(%s, events_geo)) WHERE events_id = %s RETURNING events_id;""")
 
     def on_delete(self, req, resp, id):
         db = db_connect()
