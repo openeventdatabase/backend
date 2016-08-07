@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 9.5.2
--- Dumped by pg_dump version 9.5.2
+-- Dumped from database version 9.5.3
+-- Dumped by pg_dump version 9.5.3
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -13,74 +13,7 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 SET row_security = off;
 
---
--- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
-
-
---
--- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
-
-
---
--- Name: postgis; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
-
-
---
--- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION postgis IS 'PostGIS geometry, geography, and raster spatial types and functions';
-
-
---
--- Name: uuid-ossp; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
-
-
---
--- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
-
-
 SET search_path = public, pg_catalog;
-
---
--- Name: wgs84_lat; Type: DOMAIN; Schema: public; Owner: -
---
-
-CREATE DOMAIN wgs84_lat AS double precision
-	CONSTRAINT wgs84_lat_check CHECK (((VALUE >= ('-90'::integer)::double precision) AND (VALUE <= (90)::double precision)));
-
-
---
--- Name: wgs84_lon; Type: DOMAIN; Schema: public; Owner: -
---
-
-CREATE DOMAIN wgs84_lon AS double precision
-	CONSTRAINT wgs84_lon_check CHECK (((VALUE >= ('-180'::integer)::double precision) AND (VALUE <= (180)::double precision)));
-
-
---
--- Name: events_lastupdate(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION events_lastupdate() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$ BEGIN NEW.lastupdate = now(); RETURN NEW; END; $$;
-
 
 SET default_tablespace = '';
 
@@ -109,7 +42,8 @@ CREATE TABLE events (
 CREATE TABLE geo (
     geom geometry(Geometry,4326),
     geom_center geometry(Point,4326),
-    hash text
+    hash text,
+    idx geometry
 );
 
 
@@ -119,6 +53,13 @@ CREATE TABLE geo (
 
 ALTER TABLE ONLY geo
     ADD CONSTRAINT geo_hash_key UNIQUE (hash);
+
+
+--
+-- Name: events_idx_antidup; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX events_idx_antidup ON events USING btree (events_geo, events_what, events_when);
 
 
 --
@@ -157,6 +98,13 @@ CREATE INDEX geo_geom ON geo USING gist (geom);
 
 
 --
+-- Name: geo_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX geo_idx ON geo USING gist (idx);
+
+
+--
 -- Name: events_lastupdate_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -174,4 +122,3 @@ ALTER TABLE ONLY events
 --
 -- PostgreSQL database dump complete
 --
-
