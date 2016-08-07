@@ -107,9 +107,14 @@ class EventsResource(BaseEvent):
 
 
 class EventResource(BaseEvent):
-    def maybe_insert_geometry(self, geometry, cur):
+    def maybe_insert_geometry(self, geometry, cur, event_start, event_stop):
         # insert into geo table if not existing
-        cur.execute("""INSERT INTO geo (hash, geom, geom_center) SELECT *, st_centroid(geom) FROM (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i ON CONFLICT DO NOTHING RETURNING hash;""", (geometry,))
+        cur.execute("""INSERT INTO geo (hash, geom, geom_center, idx)
+                            SELECT *, st_centroid(geom), timebox(geom, tstzrange(%s,%s,'[]')) FROM
+                                (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM
+                                    (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i
+                        ON CONFLICT DO NOTHING RETURNING hash;""",
+                    (event_start, event_stop, geometry))
         # get its id (md5 hash)
         h = cur.fetchone()
         if h is None:
@@ -322,7 +327,7 @@ class EventResource(BaseEvent):
         # get the geometry part
         if j['geometry'] is not None:
             geometry=dumps(j['geometry'])
-            h = self.maybe_insert_geometry(geometry,cur)
+            h = self.maybe_insert_geometry(geometry,cur,event_start, event_stop)
         else:
             h = [None]
         params = (j['properties']['type'], j['properties']['what'], event_start, event_stop, bounds, dumps(j['properties']), h[0])
@@ -333,8 +338,18 @@ class EventResource(BaseEvent):
             cur.execute(query, params)
             # get newly created event id
             e = cur.fetchone()
+            # update timebox '2D+T' index in geo table
+            if id is not None:
+                # PUT/PATCH get the hash from the events record
+                cur.execute("""UPDATE geo SET idx=timebox_update(idx, tstzrange(%s,%s,'[]')) FROM
+                                (SELECT events_geo FROM events WHERE events_id = %s) as e WHERE hash=e.events_geo;""",
+                            (event_start, event_stop, id))
+            else:
+                cur.execute("""UPDATE geo SET idx=timebox_update(idx, tstzrange(%s,%s,'[]')) WHERE hash=%s;""",
+                            (event_start, event_stop, h[0]))
             db.commit()
         except:
+            db.rollback()
             pass
 
         # send back to client
