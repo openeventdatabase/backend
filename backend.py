@@ -271,11 +271,30 @@ class EventResource(BaseEvent):
     def insert_or_update(self, req, resp, id, query):
 
         # get request body payload (geojson Feature)
-        body = req.stream.read().decode('utf-8')
-        j = json.loads(body)
-        if "properties" not in j or "geometry" not in j:
-            resp.body = "missing 'geometry' or 'properties' elements"
+        try:
+            body = req.stream.read().decode('utf-8')
+            j = json.loads(body)
+        except:
+            resp.body = 'invalid json or bad encoding'
             resp.status = falcon.HTTP_400
+            return
+
+        resp.body = ''
+        if "properties" not in j or "geometry" not in j:
+            resp.body = resp.body + "missing 'geometry' or 'properties' elements\n"
+        if "when" not in j['properties'] and ("start" not in j['properties'] or "stop" not in j['properties']) :
+            resp.body = resp.body + "missing 'when' or 'start/stop' in properties\n"
+        if "type" not in j['properties']:
+            resp.body = resp.body + "missing 'type' of event in properties\n"
+        if "what" not in j['properties']:
+            resp.body = resp.body + "missing 'what' in properties\n"
+        if "type" in j and j['type'] != 'Feature':
+            resp.body = resp.body + 'geojson must be "type":"Feature" only\n'
+        if resp.body != '':
+            resp.status = falcon.HTTP_400
+            resp.set_header('Content-type', 'text/plain')
+            return
+
         if "start" not in j['properties']:
             event_start = j['properties']['when']
         else:
@@ -301,14 +320,21 @@ class EventResource(BaseEvent):
         # get newly created event id
         e = cur.fetchone()
         db.commit()
-        cur.close()
-        db.close()
+
         # send back to client
         if e is None:
-          resp.status = falcon.HTTP_409
+          cur.execute("""SELECT events_id FROM events WHERE events_what=%s
+                      AND events_when=tstzrange(%s,%s,%s) AND events_geo=%s;""",
+                      (j['properties']['what'], event_start, event_stop, bounds, h[0]))
+          dupe = cur.fetchone()
+          resp.body = """{"duplicate":"%s"}""" % (dupe[0])
+          resp.status = '409 Conflict with event %s' % dupe[0]
         else:
           resp.body = """{"id":"%s"}""" % (e[0])
           resp.status = falcon.HTTP_201
+
+        cur.close()
+        db.close()
 
     def on_post(self, req, resp):
         self.insert_or_update(req, resp, None, """INSERT INTO events ( events_type, events_what, events_when, events_tags, events_geo) VALUES (%s, %s, tstzrange(%s,%s,%s) , %s, %s) ON CONFLICT DO NOTHING RETURNING events_id;""")
