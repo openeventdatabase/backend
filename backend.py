@@ -107,18 +107,21 @@ class EventsResource(BaseEvent):
 
 
 class EventResource(BaseEvent):
-    def maybe_insert_geometry(self, geometry, cur, event_start, event_stop):
+    def maybe_insert_geometry(self, geometry, cur):
         # insert into geo table if not existing
-        cur.execute("""INSERT INTO geo (hash, geom, geom_center, idx)
-                            SELECT *, st_centroid(geom), timebox(geom, tstzrange(%s,%s,'[]')) FROM
+        cur.execute("""INSERT INTO geo (hash, geom, geom_center)
+                            SELECT *, st_centroid(geom) FROM
                                 (SELECT md5(ewkt) as hash, st_setsrid(st_geomfromewkt(ewkt),4326) as geom FROM
                                     (SELECT st_asewkt(st_geomfromgeojson( %s )) as ewkt) as g) as i
+                                WHERE ST_IsValid(geom)
                         ON CONFLICT DO NOTHING RETURNING hash;""",
-                    (event_start, event_stop, geometry))
+                    (geometry,))
         # get its id (md5 hash)
         h = cur.fetchone()
         if h is None:
-            cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s )));""", (geometry,))
+            cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s ))),
+                            ST_IsValid(st_geomfromgeojson( %s )),
+                            ST_IsValidReason(st_geomfromgeojson( %s )) ;""", (geometry,geometry,geometry))
             h = cur.fetchone()
         return h
 
@@ -253,7 +256,10 @@ class EventResource(BaseEvent):
                     event_geom = cur.mogrify("ST_SnapToGrid(geom,%s)",(req.params['geom'],)).decode("utf-8")
 
             # Search recent active events.
-            sql = """SELECT events_id, events_tags, createdate, lastupdate, {event_dist} st_asgeojson({event_geom}) as geometry, st_x(geom_center) as lon, st_y(geom_center) as lat FROM events JOIN geo ON (hash=events_geo) {event_bbox} WHERE events_when && {event_when} {event_what} {event_type} ORDER BY createdate DESC {limit}"""
+            sql = """SELECT events_id, events_tags, createdate, lastupdate, {event_dist} st_asgeojson({event_geom}) as geometry, st_x(geom_center) as lon, st_y(geom_center) as lat
+                        FROM events JOIN geo ON (hash=events_geo)
+                        WHERE events_when && {event_when} {event_what} {event_type} {event_bbox}
+                        ORDER BY createdate DESC {limit}"""
             # No user generated content here, so format is safe.
             sql = sql.format(event_dist=event_dist, event_geom=event_geom,
                              event_bbox=event_bbox, event_what=event_what,
@@ -327,7 +333,12 @@ class EventResource(BaseEvent):
         # get the geometry part
         if j['geometry'] is not None:
             geometry=dumps(j['geometry'])
-            h = self.maybe_insert_geometry(geometry,cur,event_start, event_stop)
+            h = self.maybe_insert_geometry(geometry,cur)
+            if len(h)>1 and h[1] is False:
+                resp.body = "invalid geometry: %s\n" % h[2]
+                resp.status = falcon.HTTP_400
+                resp.set_header('Content-type', 'text/plain')
+                return
         else:
             h = [None]
         params = (j['properties']['type'], j['properties']['what'], event_start, event_stop, bounds, dumps(j['properties']), h[0])
@@ -338,15 +349,6 @@ class EventResource(BaseEvent):
             cur.execute(query, params)
             # get newly created event id
             e = cur.fetchone()
-            # update timebox '2D+T' index in geo table
-            if id is not None:
-                # PUT/PATCH get the hash from the events record
-                cur.execute("""UPDATE geo SET idx=timebox_update(idx, tstzrange(%s,%s,'[]')) FROM
-                                (SELECT events_geo FROM events WHERE events_id = %s) as e WHERE hash=e.events_geo;""",
-                            (event_start, event_stop, id))
-            else:
-                cur.execute("""UPDATE geo SET idx=timebox_update(idx, tstzrange(%s,%s,'[]')) WHERE hash=%s;""",
-                            (event_start, event_stop, h[0]))
             db.commit()
         except:
             db.rollback()
@@ -394,7 +396,7 @@ class EventResource(BaseEvent):
         cur.close()
         db.close()
         if cur.rowcount:
-            resp.status = falcon.HTTP_204
+            resp.status = "204 event deleted"
         else:
             resp.status = falcon.HTTP_404
 
