@@ -391,6 +391,9 @@ class EventResource(BaseEvent):
     def on_delete(self, req, resp, id):
         db = db_connect()
         cur = db.cursor()
+        cur.execute("""INSERT INTO events_deleted SELECT events_id, createdate, lastupdate, events_type, events_what, events_when, events_geo, events_tags
+                                FROM events e
+                                WHERE e.events_id = %s;""", (id,));
         cur.execute("""DELETE FROM events WHERE events_id = %s;""", (id,));
         db.commit()
         cur.close()

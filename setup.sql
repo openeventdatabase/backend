@@ -35,6 +35,18 @@ CREATE TABLE events (
 );
 
 
+CREATE TABLE events_deleted (
+    events_id uuid,
+    createdate timestamp without time zone,
+    lastupdate timestamp without time zone,
+    events_type text,
+    events_what text,
+    events_when tstzrange,
+    events_geo text,
+    events_tags jsonb
+);
+
+
 --
 -- Name: geo; Type: TABLE; Schema: public; Owner: -
 --
