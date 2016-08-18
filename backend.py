@@ -80,6 +80,8 @@ class BaseEvent:
             'lat': row['lat'],
             "id": row['events_id']
         })
+        if 'secret' in properties: # hide secret in results
+            del properties['secret']
         if "distance" in row:
             properties['distance'] = row['distance']
         return {
@@ -327,9 +329,19 @@ class EventResource(BaseEvent):
             bounds = '[]'
         else:
             bounds = '[)'
+
         # connect to db and insert
         db = db_connect()
         cur = db.cursor()
+
+        # 'secret' based authentication
+        if 'secret' in j['properties']:
+            secret = cur.mogrify(" AND (events_tags->>'secret' = %s OR events_tags->>'secret' IS NULL) ",(j['properties']['secret'],)).decode("utf-8")
+        elif 'secret' in req.params:
+            secret = cur.mogrify(" AND (events_tags->>'secret' = %s OR events_tags->>'secret' IS NULL) ",(req.params['secret'],)).decode("utf-8")
+        else:
+            secret = " AND events_tags->>'secret' IS NULL "
+
         # get the geometry part
         if j['geometry'] is not None:
             geometry=dumps(j['geometry'])
@@ -346,7 +358,8 @@ class EventResource(BaseEvent):
             params = params + (id,)
         e = None
         try:
-            cur.execute(query, params)
+            cur.execute(query.format(secret=secret), params)
+            rows = cur.rowcount
             # get newly created event id
             e = cur.fetchone()
             db.commit()
@@ -361,7 +374,14 @@ class EventResource(BaseEvent):
                       AND events_when=tstzrange(%s,%s,%s) AND events_geo=%s;""",
                       (j['properties']['what'], event_start, event_stop, bounds, h[0]))
           else:
-              cur.execute("""END; WITH s AS (SELECT * FROM events WHERE events_id = %s) SELECT e.events_id FROM events e, s WHERE e.events_what=coalesce(%s, s.events_what)
+              if rows==0:
+                  if 'secret' in req.params or 'secret' in j['properties']:
+                      resp.status = '403 Unauthorized, secret does not match'
+                  else:
+                      resp.status = '403 Unauthorized, secret required'
+                  return
+              else:
+                  cur.execute("""END; WITH s AS (SELECT * FROM events WHERE events_id = %s) SELECT e.events_id FROM events e, s WHERE e.events_what=coalesce(%s, s.events_what)
                       AND e.events_when=tstzrange(coalesce(%s, lower(s.events_when)),coalesce(%s,upper(s.events_when)),%s) AND e.events_geo=coalesce(%s, s.events_geo);""",
                       (id, j['properties']['what'], event_start, event_stop, bounds, h[0]))
           dupe = cur.fetchone()
@@ -386,22 +406,30 @@ class EventResource(BaseEvent):
 
     def on_patch(self, req, resp, id):
         # coalesce are used to PATCH the data (new value may be NULL to keep the old one)
-        self.insert_or_update(req, resp, id, """UPDATE events SET ( events_type, events_what, events_when, events_tags, events_geo) = (coalesce(%s, events_type), coalesce(%s, events_what), tstzrange(coalesce(%s, lower(events_when)),coalesce(%s, upper(events_when)),%s) , events_tags || %s , coalesce(%s, events_geo)) WHERE events_id = %s RETURNING events_id;""")
+        self.insert_or_update(req, resp, id, """UPDATE events SET ( events_type, events_what, events_when, events_tags, events_geo) = (coalesce(%s, events_type), coalesce(%s, events_what), tstzrange(coalesce(%s, lower(events_when)),coalesce(%s, upper(events_when)),%s) , events_tags::jsonb || (%s::jsonb -'secret') , coalesce(%s, events_geo))
+                              WHERE events_id = %s {secret} RETURNING events_id;""")
 
     def on_delete(self, req, resp, id):
         db = db_connect()
         cur = db.cursor()
-        cur.execute("""INSERT INTO events_deleted SELECT events_id, createdate, lastupdate, events_type, events_what, events_when, events_geo, events_tags
-                                FROM events e
-                                WHERE e.events_id = %s;""", (id,));
-        cur.execute("""DELETE FROM events WHERE events_id = %s;""", (id,));
-        db.commit()
+        cur.execute("""INSERT INTO events_deleted SELECT events_id, createdate, lastupdate, events_type, events_what, events_when, events_geo, events_tags FROM events WHERE events_id = %s """, (id,));
+        rows_insert = cur.rowcount
+
+        # 'secret' based authentication, must be null or same as during POST
+        if 'secret' in req.params:
+            cur.execute("""DELETE FROM events WHERE events_id = %s AND (events_tags->>'secret' = %s OR events_tags->>'secret' IS NULL)""", (id,req.params['secret']));
+        else:
+            cur.execute("""DELETE FROM events WHERE events_id = %s AND events_tags->>'secret' IS NULL;""",(id,))
+        if cur.rowcount==1:
+            resp.status = "204 event deleted"
+            db.commit()
+        elif rows_insert==1: # INSERT ok but DELETE fails due to missing secret...
+            resp.status = "403 Unauthorized, secret needed to delete this event"
+            db.rollback()
+        else:
+            resp.status = "404 event not found"
         cur.close()
         db.close()
-        if cur.rowcount:
-            resp.status = "204 event deleted"
-        else:
-            resp.status = falcon.HTTP_404
 
 
 class EventSearch(BaseEvent):
