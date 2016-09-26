@@ -5,6 +5,9 @@
 -- Dumped from database version 9.5.3
 -- Dumped by pg_dump version 9.5.3
 
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "postgis";
+
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET client_encoding = 'UTF8';
@@ -119,6 +122,14 @@ CREATE INDEX geo_idx ON geo USING gist (idx);
 --
 -- Name: events_lastupdate_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
+
+CREATE FUNCTION events_lastupdate() RETURNS trigger AS $$
+BEGIN
+	  NEW.lastupdate := NOW();
+
+	  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER events_lastupdate_trigger BEFORE INSERT OR UPDATE ON events FOR EACH ROW EXECUTE PROCEDURE events_lastupdate();
 
