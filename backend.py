@@ -42,7 +42,8 @@ class HeaderMiddleware:
         resp.set_header('Access-Control-Allow-Origin', '*')
         resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
         resp.set_header('Access-Control-Allow-Headers', 'Content-Type')
-
+        resp.set_header('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS')
+        
 class StatsResource(object):
     def on_get(self, req, resp):
         db = db_connect()
