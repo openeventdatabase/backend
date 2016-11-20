@@ -232,7 +232,7 @@ class EventResource(BaseEvent):
 
             if 'what' in req.params:
                 # limit search based on "what"
-                event_what = cur.mogrify(" AND events_what LIKE %s ", (req.params['what']+"%",)).decode("utf-8")
+                event_what = cur.mogrify(" AND events_what LIKE %s AND events_what LIKE %s ", (req.params['what'][:4]+"%",req.params['what']+"%")).decode("utf-8")
             else:
                 event_what = ""
 
