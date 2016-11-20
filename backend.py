@@ -43,7 +43,7 @@ class HeaderMiddleware:
         resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
         resp.set_header('Access-Control-Allow-Headers', 'Content-Type')
         resp.set_header('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS')
-        
+
 class StatsResource(object):
     def on_get(self, req, resp):
         db = db_connect()
@@ -122,9 +122,9 @@ class EventResource(BaseEvent):
         # get its id (md5 hash)
         h = cur.fetchone()
         if h is None:
-            cur.execute("""SELECT md5(st_asewkt(st_geomfromgeojson( %s ))),
-                            ST_IsValid(st_geomfromgeojson( %s )),
-                            ST_IsValidReason(st_geomfromgeojson( %s )) ;""", (geometry,geometry,geometry))
+            cur.execute("""SELECT md5(st_asewkt(geom)),
+                            ST_IsValid(geom),
+                            ST_IsValidReason(geom) from (SELECT st_geomfromgeojson( %s ) as geom) as g ;""", (geometry,))
             h = cur.fetchone()
         return h
 
