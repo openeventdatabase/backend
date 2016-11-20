@@ -113,7 +113,7 @@ class EventResource(BaseEvent):
     def maybe_insert_geometry(self, geometry, cur):
         # insert into geo table if not existing
         cur.execute("""INSERT INTO geo
-                            SELECT geom, md5(st_asewkt(geom)) as hash, st_centroid(geom) as geom_center FROM
+                            SELECT geom, md5(st_astext(geom)) as hash, st_centroid(geom) as geom_center FROM
                                     (SELECT st_setsrid(st_geomfromgeojson( %s ),4326) as geom) as g
                                 WHERE ST_IsValid(geom)
                         ON CONFLICT DO NOTHING RETURNING hash;""",
