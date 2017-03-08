@@ -53,8 +53,8 @@ CREATE TABLE events_deleted (
 
 CREATE TABLE geo (
     geom geometry(Geometry,4326),
-    geom_center geometry(Point,4326),
     hash text,
+    geom_center geometry(Point,4326),
     idx geometry
 );
 
