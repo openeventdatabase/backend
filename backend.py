@@ -99,16 +99,6 @@ class BaseEvent:
         }
 
 
-class EventsResource(BaseEvent):
-
-    def on_get(self, req, resp):
-        db = db_connect()
-        cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cur.execute("SELECT events_id, events_tags, createdate, lastupdate, st_asgeojson(geom) as geometry FROM events JOIN geo ON (hash=events_geo)")
-        resp.body = dumps(self.rows_to_collection(cur.fetchall()))
-        resp.status = falcon.HTTP_200
-
-
 class EventResource(BaseEvent):
     def maybe_insert_geometry(self, geometry, cur):
         # insert into geo table if not existing
@@ -446,13 +436,11 @@ class EventSearch(BaseEvent):
 app = falcon.API(middleware=[HeaderMiddleware()])
 
 # Resources are represented by long-lived class instances
-events = EventsResource()
 event = EventResource()
 stats = StatsResource()
 event_search = EventSearch()
 
 # things will handle all requests to the matching URL path
-app.add_route('/events', events)
 app.add_route('/event/{id}', event)  # handle single event requests
 app.add_route('/event', event)  # handle single event requests
 app.add_route('/stats', stats)
