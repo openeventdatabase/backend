@@ -198,7 +198,7 @@
           "description": "Geometry type: Point"
         },
         "coordinates": {
-          "description": "Geometry coordinates (latitude; longitude)",
+          "description": "Geometry coordinates (longitude; latitude)",
           "type": "array",
           "items": {
             "type": "number",
@@ -226,10 +226,26 @@
           "type": "string",
           "description": "Event UUID"
         },
+        "label": {
+          "type": "string",
+          "description": "Event label"
+        },
         "lastupdate": {
           "type": "string",
           "format": "date",
           "description": "Event last modification timestamp"
+        },
+        "lat": {
+          "type": "number",
+          "description": "Event location latitude"
+        },
+        "lon": {
+          "type": "number",
+          "description": "Event location longitude"
+        },
+        "source": {
+          "type": "string",
+          "description": "Event source"
         },
         "start": {
           "type": "string",
@@ -278,6 +294,6 @@
           "enum": ["Point"]
         }
       }
-    },
+    }
   }
 }
