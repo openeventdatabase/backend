@@ -187,7 +187,29 @@
     }
   },
   "definitions": {
-    "Event": {
+    "EventGeometry": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Geometry type: Point"
+        },
+        "coordinates": {
+          "description": "Geometry coordinates (latitude; longitude)",
+          "type": "array",
+          "items": {
+            "type": "number",
+            "format": "float",
+            "maxItems": 2,
+            "minItems": 2
+          }
+        }
+      }
+    },
+    "EventProperties": {
       "type": "object",
       "required": [
         "id",
@@ -221,7 +243,8 @@
         },
         "type": {
           "type": "string",
-          "description": "Event type: scheduled, forecast, unscheduled"
+          "description": "Event type",
+          "enum": ["scheduled", "forecast", "unscheduled"]
         },
         "what": {
           "type": "string",
@@ -233,6 +256,28 @@
           "description": "Event timestamp"
         }
       }
-    }
+    },
+    "Event": {
+      "type": "object",
+      "required": [
+        "geometry",
+        "properties",
+        "type"
+      ],
+      "properties": {
+        "geometry": {
+          "$ref": "#/definitions/EventGeometry"
+        },
+        "properties": {
+          "$ref": "#/definitions/EventProperties"
+        },
+        "type":
+        {
+          "description": "Type of event",
+          "type": "string",
+          "enum": ["Point"]
+        }
+      }
+    },
   }
 }
