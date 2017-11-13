@@ -159,6 +159,7 @@ class EventResource(BaseEvent):
         db = db_connect()
         cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
         if id is None:
+            event_sort = "createdate DESC"
             # get query search parameters
             if geom is not None:
                 # convert our geojson geom to WKT
@@ -188,6 +189,7 @@ class EventResource(BaseEvent):
                     dist = req.params['near'][2]
                 event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry) ", (req.params['near'][0], req.params['near'][1], dist)).decode("utf-8")
                 event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography)::integer as distance,", (req.params['near'][0], req.params['near'][1])).decode("utf-8")
+                event_sort = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography)::integer, ", (req.params['near'][0], req.params['near'][1])).decode("utf-8")+event_sort
             elif 'polyline' in req.params:
                 # use encoded polyline as search geometry
                 if 'buffer' in req.params:
@@ -256,11 +258,12 @@ class EventResource(BaseEvent):
             sql = """SELECT events_id, events_tags, createdate, lastupdate, {event_dist} st_asgeojson({event_geom}) as geometry, st_x(geom_center) as lon, st_y(geom_center) as lat
                         FROM events JOIN geo ON (hash=events_geo)
                         WHERE events_when && {event_when} {event_what} {event_type} {event_bbox}
-                        ORDER BY createdate DESC {limit}"""
+                        ORDER BY {event_sort} {limit}"""
             # No user generated content here, so format is safe.
             sql = sql.format(event_dist=event_dist, event_geom=event_geom,
                              event_bbox=event_bbox, event_what=event_what,
-                             event_when=event_when, event_type=event_type, limit=limit)
+                             event_when=event_when, event_type=event_type,
+                             event_sort=event_sort, limit=limit)
             cur.execute(sql)
             resp.body = dumps(self.rows_to_collection(cur.fetchall(), geom_only))
             resp.status = falcon.HTTP_200
