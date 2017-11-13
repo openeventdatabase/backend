@@ -16,9 +16,9 @@ from shapely.geometry import shape
 def db_connect():
     return psycopg2.connect(
         dbname=os.getenv("DB_NAME", "oedb"),
-        host=os.getenv("DB_HOST", None),
+        host=os.getenv("DB_HOST", ""),
         password=os.getenv("POSTGRES_PASSWORD", None),
-        user=os.getenv("DB_USER", None))
+        user=os.getenv("DB_USER", ""))
 
 
 class EventEncoder(json.JSONEncoder):
