@@ -44,6 +44,7 @@ class HeaderMiddleware:
         resp.set_header('Access-Control-Allow-Headers', 'Content-Type')
         resp.set_header('Access-Control-Allow-Methods','GET, POST, PUT, DELETE, OPTIONS')
 
+
 class StatsResource(object):
     def on_get(self, req, resp):
         db = db_connect()
@@ -51,14 +52,18 @@ class StatsResource(object):
         # estimated row count, way faster then count(*)
         cur.execute("SELECT reltuples::bigint FROM pg_class r WHERE relname = 'events';")
         count = cur.fetchone()[0]
+        # global info
         cur.execute("SELECT max(lastupdate) as last_updated, current_timestamp-pg_postmaster_start_time() from events;")
         pg_stats = cur.fetchone()
         last = pg_stats[0]
         pg_uptime = pg_stats[1]
         uptime = subprocess.check_output(["uptime","-p"]).decode('utf-8')[0:-1]
+        # summary about last 10000 events (what, last, count, sources)
+        cur.execute("SELECT row_to_json(stat) from (SELECT events_what as what, left(max(upper(events_when))::text,19) as last, count(*) as count, array_agg(distinct(regexp_replace(regexp_replace(events_tags ->> 'source','^(http://|https://)',''),'/.*',''))) as source from (select * from events order by lastupdate desc limit 10000) as last group by 1 order by 2 desc) as stat;")
+        recent = cur.fetchall()
         cur.close()
         db.close()
-        resp.body = dumps(dict(events_count=count, last_updated=last, uptime=uptime, db_uptime=pg_uptime))
+        resp.body = dumps(dict(events_count=count, last_updated=last, uptime=uptime, db_uptime=pg_uptime, recent=recent))
         resp.status = falcon.HTTP_200
 
 
