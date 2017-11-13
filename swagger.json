@@ -145,7 +145,15 @@
         "produces": [
           "application/json"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id of event",
+            "required": true,
+            "type": "string"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -179,7 +187,29 @@
     }
   },
   "definitions": {
-    "Event": {
+    "EventGeometry": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Geometry type: Point"
+        },
+        "coordinates": {
+          "description": "Geometry coordinates (longitude; latitude)",
+          "type": "array",
+          "items": {
+            "type": "number",
+            "format": "float",
+            "maxItems": 2,
+            "minItems": 2
+          }
+        }
+      }
+    },
+    "EventProperties": {
       "type": "object",
       "required": [
         "id",
@@ -196,10 +226,26 @@
           "type": "string",
           "description": "Event UUID"
         },
+        "label": {
+          "type": "string",
+          "description": "Event label"
+        },
         "lastupdate": {
           "type": "string",
           "format": "date",
           "description": "Event last modification timestamp"
+        },
+        "lat": {
+          "type": "number",
+          "description": "Event location latitude"
+        },
+        "lon": {
+          "type": "number",
+          "description": "Event location longitude"
+        },
+        "source": {
+          "type": "string",
+          "description": "Event source"
         },
         "start": {
           "type": "string",
@@ -213,7 +259,8 @@
         },
         "type": {
           "type": "string",
-          "description": "Event type: scheduled, forecast, unscheduled"
+          "description": "Event type",
+          "enum": ["scheduled", "forecast", "unscheduled"]
         },
         "what": {
           "type": "string",
@@ -223,6 +270,28 @@
           "type": "string",
           "format": "date",
           "description": "Event timestamp"
+        }
+      }
+    },
+    "Event": {
+      "type": "object",
+      "required": [
+        "geometry",
+        "properties",
+        "type"
+      ],
+      "properties": {
+        "geometry": {
+          "$ref": "#/definitions/EventGeometry"
+        },
+        "properties": {
+          "$ref": "#/definitions/EventProperties"
+        },
+        "type":
+        {
+          "description": "Type of event",
+          "type": "string",
+          "enum": ["Point"]
         }
       }
     }
