@@ -11,7 +11,6 @@ import falcon
 import psycopg2
 import psycopg2.extras
 import geojson
-from shapely.geometry import shape
 
 def db_connect():
     return psycopg2.connect(
@@ -163,7 +162,7 @@ class EventResource(BaseEvent):
             # get query search parameters
             if geom is not None:
                 # convert our geojson geom to WKT
-                wkt = shape(geojson.loads(json.dumps(geom))).wkt
+                geoj = json.dumps(geom)
                 # buffer around geom ?
                 if 'buffer' in req.params:
                   buffer = float(req.params['buffer'])
@@ -172,10 +171,11 @@ class EventResource(BaseEvent):
                 else:
                   buffer = 0
                 if buffer == 0:
-                  event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_SetSRID(ST_GeomFromText(%s),4326)) ",(wkt,)).decode("utf-8")
+                  event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_SetSRID(ST_GeomFromGeoJSON(%s),4326)) ",(geoj,)).decode("utf-8")
                 else:
-                  event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(ST_SetSRID(ST_GeomFromText(%s),4326)::geography, %s)::geometry) ",(wkt, buffer)).decode("utf-8")
-                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, ST_SetSRID(ST_GeomFromText(%s),4326))::geography)::integer as distance, ",(wkt,)).decode("utf-8")
+                  event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(ST_SetSRID(ST_GeomFromGeoJSON(%s),4326)::geography, %s)::geometry) ",(geoj, buffer)).decode("utf-8")
+                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, ST_SetSRID(ST_GeomFromGeoJSON(%s),4326))::geography)::integer as distance, ",(geoj,)).decode("utf-8")
+                event_sort = cur.mogrify("ST_Length(ST_ShortestLine(geom, ST_SetSRID(ST_GeomFromGeoJSON(%s),4326))::geography)::integer, ", (geoj,)).decode("utf-8")+event_sort
             elif 'bbox' in req.params:
                 # limit search with bbox (E,S,W,N)
                 event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ",tuple(req.params['bbox'])).decode("utf-8")
@@ -264,6 +264,7 @@ class EventResource(BaseEvent):
                              event_bbox=event_bbox, event_what=event_what,
                              event_when=event_when, event_type=event_type,
                              event_sort=event_sort, limit=limit)
+            print(sql)
             cur.execute(sql)
             resp.body = dumps(self.rows_to_collection(cur.fetchall(), geom_only))
             resp.status = falcon.HTTP_200
