@@ -129,7 +129,10 @@
           },
           "400": {
             "description": "Error 400"
-          }
+          },
+          "500": {
+            "description": "Internal Server Error 500"
+          },
         }
       }
     },
@@ -166,7 +169,10 @@
           },
           "404": {
             "description": "Error 404"
-          }
+          },
+          "500": {
+            "description": "Internal Server Error 500"
+          },
         }
       }
     },
