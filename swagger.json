@@ -12,7 +12,7 @@
       "url": "http://www.gnu.org/licenses/"
     }
   },
-  "host": "api.openeventdatabase.org:80",
+  "host": "api.openeventdatabase.org:443",
   "basePath": "/",
   "tags": [
     {
