@@ -291,7 +291,7 @@
         {
           "description": "Type of event",
           "type": "string",
-          "enum": ["Point"]
+          "enum": ["Feature"]
         }
       }
     }
