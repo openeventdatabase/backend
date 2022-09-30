@@ -264,7 +264,7 @@ class EventResource(BaseEvent):
                              event_bbox=event_bbox, event_what=event_what,
                              event_when=event_when, event_type=event_type,
                              event_sort=event_sort, limit=limit)
-            print(sql)
+            #print(sql)
             cur.execute(sql)
             resp.body = dumps(self.rows_to_collection(cur.fetchall(), geom_only))
             resp.status = falcon.HTTP_200
@@ -356,13 +356,16 @@ class EventResource(BaseEvent):
         if id:
             params = params + (id,)
         e = None
+        rows = None
         try:
+            sql = cur.mogrify(query,params)
             cur.execute(query.format(secret=secret), params)
             rows = cur.rowcount
             # get newly created event id
             e = cur.fetchone()
             db.commit()
-        except:
+        except psycopg2.Error as err:
+            print(err, sql, err.pgerror)
             db.rollback()
             pass
 
