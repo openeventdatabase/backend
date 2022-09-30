@@ -36,7 +36,7 @@ def dumps(data):
 
 class HeaderMiddleware:
 
-    def process_response(self, req, resp, resource):
+    def process_response(self, req, resp, resource, params):
         resp.set_header('X-Powered-By', 'OpenEventDatabase')
         resp.set_header('Access-Control-Allow-Origin', '*')
         resp.set_header('Access-Control-Allow-Headers', 'X-Requested-With')
