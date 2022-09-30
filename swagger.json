@@ -12,7 +12,7 @@
       "url": "http://www.gnu.org/licenses/"
     }
   },
-  "host": "api.openeventdatabase.org:80",
+  "host": "api.openeventdatabase.org",
   "basePath": "/",
   "tags": [
     {
@@ -25,7 +25,7 @@
     }
   ],
   "schemes": [
-    "http"
+    "https"
   ],
   "paths": {
     "/event": {
@@ -129,7 +129,10 @@
           },
           "400": {
             "description": "Error 400"
-          }
+          },
+          "500": {
+            "description": "Internal Server Error 500"
+          },
         }
       }
     },
@@ -166,7 +169,10 @@
           },
           "404": {
             "description": "Error 404"
-          }
+          },
+          "500": {
+            "description": "Internal Server Error 500"
+          },
         }
       }
     },
@@ -291,7 +297,7 @@
         {
           "description": "Type of event",
           "type": "string",
-          "enum": ["Point"]
+          "enum": ["Feature"]
         }
       }
     }
