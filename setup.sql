@@ -145,3 +145,7 @@ ALTER TABLE ONLY events
 --
 -- PostgreSQL database dump complete
 --
+
+
+CREATE INDEX events_idx_where_osm ON events USING spgist ((events_tags->>'where:osm')) WHERE events_tags ? 'where:osm';
+CREATE INDEX events_idx_where_wikidata ON events USING spgist ((events_tags->>'where:wikidata')) WHERE events_tags ? 'where:wikidata';

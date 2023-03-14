@@ -203,6 +203,12 @@ class EventResource(BaseEvent):
                 # ST_Scale is a workaround to postgis bug not taking precision into account in ST_LineFromEncodedPolyline
                 event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(ST_Scale(ST_LineFromEncodedPolyline(%s),1/10^(%s-5),1/10^(%s-5))::geography, %s)::geometry) ",(req.params['polyline'], precision, precision, buffer)).decode("utf-8")
                 event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, ST_Scale(ST_LineFromEncodedPolyline(%s),1/10^(%s-5),1/10^(%s-5)))::geography)::integer as distance, ",(req.params['polyline'], precision, precision)).decode("utf-8")
+            elif 'where:osm' in req.params:
+                event_bbox = cur.mogrify(" AND events_tags ? 'where:osm' AND events_tags->>'where:osm'=%s ", (req.params['where:osm'],)).decode("utf-8")
+                event_dist = ""
+            elif 'where:wikidata' in req.params:
+                event_bbox = cur.mogrify(" AND events_tags ? 'where:wikidata' AND events_tags->>'where:wikidata'=%s ", (req.params['where:wikidata'],)).decode("utf-8")
+                event_dist = ""
             else:
                 event_bbox = ""
                 event_dist = ""
