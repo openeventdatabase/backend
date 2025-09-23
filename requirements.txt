@@ -1,4 +1,4 @@
-falcon>=3.1.0
+falcon>=4.0.0
 psycopg2-binary
 geojson
 gunicorn

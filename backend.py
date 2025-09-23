@@ -62,7 +62,7 @@ class StatsResource(object):
         recent = cur.fetchall()
         cur.close()
         db.close()
-        resp.body = dumps(dict(events_count=count, last_updated=last, uptime=uptime, db_uptime=pg_uptime, recent=recent))
+        resp.text = dumps(dict(events_count=count, last_updated=last, uptime=uptime, db_uptime=pg_uptime, recent=recent))
         resp.status = falcon.HTTP_200
 
 
@@ -273,7 +273,7 @@ class EventResource(BaseEvent):
                              event_sort=event_sort, limit=limit)
             #print(sql)
             cur.execute(sql)
-            resp.body = dumps(self.rows_to_collection(cur.fetchall(), geom_only))
+            resp.text = dumps(self.rows_to_collection(cur.fetchall(), geom_only))
             resp.status = falcon.HTTP_200
         else:
             # Get single event geojson Feature by id.
@@ -281,7 +281,7 @@ class EventResource(BaseEvent):
 
             e = cur.fetchone()
             if e is not None:
-                resp.body = dumps(self.row_to_feature(e))
+                resp.text = dumps(self.row_to_feature(e))
                 resp.status = falcon.HTTP_200
             else:
                 resp.status = falcon.HTTP_404
@@ -294,29 +294,29 @@ class EventResource(BaseEvent):
             body = req.stream.read().decode('utf-8')
             j = json.loads(body)
         except:
-            resp.body = 'invalid json or bad encoding'
+            resp.text = 'invalid json or bad encoding'
             resp.status = falcon.HTTP_400
             return
 
-        resp.body = ''
+        resp.text = ''
         if "properties" not in j:
-            resp.body = resp.body + "missing 'properties' elements\n"
+            resp.text = resp.text + "missing 'properties' elements\n"
             j['properties'] = dict()
         if "geometry" not in j:
-            resp.body = resp.body + "missing 'geometry' elements\n"
+            resp.text = resp.text + "missing 'geometry' elements\n"
             j['geometry'] = None
         if "when" not in j['properties'] and ("start" not in j['properties'] or "stop" not in j['properties']) :
-            resp.body = resp.body + "missing 'when' or 'start/stop' in properties\n"
+            resp.text = resp.text + "missing 'when' or 'start/stop' in properties\n"
             j['properties']['when'] = None
         if "type" not in j['properties']:
-            resp.body = resp.body + "missing 'type' of event in properties\n"
+            resp.text = resp.text + "missing 'type' of event in properties\n"
             j['properties']['type'] = None
         if "what" not in j['properties']:
-            resp.body = resp.body + "missing 'what' in properties\n"
+            resp.text = resp.text + "missing 'what' in properties\n"
             j['properties']['what'] = None
         if "type" in j and j['type'] != 'Feature':
-            resp.body = resp.body + 'geojson must be "type":"Feature" only\n'
-        if id is None and resp.body != '':
+            resp.text = resp.text + 'geojson must be "type":"Feature" only\n'
+        if id is None and resp.text != '':
             resp.status = falcon.HTTP_400
             resp.set_header('Content-type', 'text/plain')
             return
@@ -353,7 +353,7 @@ class EventResource(BaseEvent):
             geometry=dumps(j['geometry'])
             h = self.maybe_insert_geometry(geometry,cur)
             if len(h)>1 and h[1] is False:
-                resp.body = "invalid geometry: %s\n" % h[2]
+                resp.text = "invalid geometry: %s\n" % h[2]
                 resp.status = falcon.HTTP_400
                 resp.set_header('Content-type', 'text/plain')
                 return
@@ -394,10 +394,10 @@ class EventResource(BaseEvent):
                       AND e.events_when=tstzrange(coalesce(%s, lower(s.events_when)),coalesce(%s,upper(s.events_when)),%s) AND e.events_geo=coalesce(%s, s.events_geo);""",
                       (id, j['properties']['what'], event_start, event_stop, bounds, h[0]))
           dupe = cur.fetchone()
-          resp.body = """{"duplicate":"%s"}""" % (dupe[0])
+          resp.text = """{"duplicate":"%s"}""" % (dupe[0])
           resp.status = '409 Conflict with event %s' % dupe[0]
         else:
-          resp.body = """{"id":"%s"}""" % (e[0])
+          resp.text = """{"id":"%s"}""" % (e[0])
           if id is None:
               resp.status = falcon.HTTP_201
           else:
@@ -452,7 +452,7 @@ class EventSearch(BaseEvent):
 
 
 # Falcon.API instances are callable WSGI apps.
-app = falcon.API(middleware=[HeaderMiddleware()])
+app = falcon.App(middleware=[HeaderMiddleware()])
 
 # Resources are represented by long-lived class instances
 event = EventResource()
