@@ -178,18 +178,19 @@ class EventResource(BaseEvent):
                 event_sort = cur.mogrify("ST_Length(ST_ShortestLine(geom, ST_SetSRID(ST_GeomFromGeoJSON(%s),4326))::geography)::integer, ", (geoj,)).decode("utf-8")+event_sort
             elif 'bbox' in req.params:
                 # limit search with bbox (E,S,W,N)
-                event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ",tuple(req.params['bbox'])).decode("utf-8")
+                event_bbox = cur.mogrify(" AND geom && ST_SetSRID(ST_MakeBox2D(ST_Point(%s,%s),ST_Point(%s,%s)),4326) ", tuple(req.params['bbox'].split(','))).decode("utf-8")
                 event_dist = ""
             elif 'near' in req.params:
                 # Limit search with location+distance
                 # (long, lat, distance in meters)
-                if len(req.params['near']) < 3:
+                near = req.params['near'].split(',')
+                if len(near) < 3:
                     dist = 1
                 else:
-                    dist = req.params['near'][2]
-                event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry) ", (req.params['near'][0], req.params['near'][1], dist)).decode("utf-8")
-                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography)::integer as distance,", (req.params['near'][0], req.params['near'][1])).decode("utf-8")
-                event_sort = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography)::integer, ", (req.params['near'][0], req.params['near'][1])).decode("utf-8")+event_sort
+                    dist = near[2]
+                event_bbox = cur.mogrify(" AND ST_Intersects(geom, ST_Buffer(st_setsrid(st_makepoint(%s,%s),4326)::geography,%s)::geometry) ", (near[0], near[1], dist)).decode("utf-8")
+                event_dist = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography)::integer as distance,", (near[0], near[1])).decode("utf-8")
+                event_sort = cur.mogrify("ST_Length(ST_ShortestLine(geom, st_setsrid(st_makepoint(%s,%s),4326))::geography)::integer, ", (near[0], near[1])).decode("utf-8")+event_sort
             elif 'polyline' in req.params:
                 # use encoded polyline as search geometry
                 if 'buffer' in req.params:
