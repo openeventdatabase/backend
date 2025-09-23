@@ -115,9 +115,9 @@ class EventResource(BaseEvent):
         # get its id (md5 hash)
         h = cur.fetchone()
         if h is None:
-            cur.execute("""SELECT md5(st_asewkt(geom)),
+            cur.execute("""SELECT md5(st_astext(geom)),
                             ST_IsValid(geom),
-                            ST_IsValidReason(geom) from (SELECT st_geomfromgeojson( %s ) as geom) as g ;""", (geometry,))
+                            ST_IsValidReason(geom) from (SELECT st_setsrid(st_geomfromgeojson( %s ),4326) as geom) as g ;""", (geometry,))
             h = cur.fetchone()
         return h
 
