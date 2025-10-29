@@ -331,6 +331,8 @@ class EventResource(BaseEvent):
             event_stop = j['properties']['when']
         else:
             event_stop = j['properties']['stop']
+        if not event_stop:
+            event_stop = event_start
         if event_start == event_stop:
             bounds = '[]'
         else:
